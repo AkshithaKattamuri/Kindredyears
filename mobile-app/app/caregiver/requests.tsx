@@ -1,160 +1,273 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { 
+collection,
+onSnapshot,
+query,
+where,
+doc,
+updateDoc
+} from "firebase/firestore";
 
+import { useEffect, useState } from "react";
 
-export default function BookingRequests() {
+import {
+StyleSheet,
+Text,
+TouchableOpacity,
+View
+} from "react-native";
 
-
-  return (
-
-    <View style={styles.container}>
-
-
-      <Text style={styles.title}>
-        Booking Requests
-      </Text>
-
-
-
-      <View style={styles.card}>
-
-
-        <Text style={styles.name}>
-          👵 Patient: Lakshmi Devi
-        </Text>
-
-
-        <Text style={styles.text}>
-          Age: 72 years
-        </Text>
-
-
-        <Text style={styles.text}>
-          Service Needed: Daily Care Assistance
-        </Text>
-
-
-        <Text style={styles.text}>
-          Date: 5 July 2026
-        </Text>
-
-
-        <Text style={styles.text}>
-          Time: 5:00 PM
-        </Text>
-
-
-        <Text style={styles.text}>
-          Location: Hyderabad
-        </Text>
+import { db } from "../../config/firebase";
 
 
 
-        <View style={styles.buttonRow}>
+export default function BookingRequests(){
 
 
-          <TouchableOpacity style={styles.acceptBtn}>
-
-            <Text style={styles.buttonText}>
-              Accept
-            </Text>
-
-          </TouchableOpacity>
+const [requests,setRequests]=useState<any[]>([]);
 
 
 
-          <TouchableOpacity style={styles.rejectBtn}>
-
-            <Text style={styles.buttonText}>
-              Reject
-            </Text>
-
-          </TouchableOpacity>
+useEffect(()=>{
 
 
-        </View>
-
-
-      </View>
+const q=query(
+collection(db,"caregiverRequests"),
+where("status","==","pending")
+);
 
 
 
-    </View>
+const unsubscribe=onSnapshot(q,(snapshot)=>{
 
-  );
+
+const data=snapshot.docs.map(doc=>({
+
+id:doc.id,
+...doc.data()
+
+}));
+
+console.log("REQUESTS FOUND:", data);
+setRequests(data);
+
+
+});
+
+
+
+return unsubscribe;
+
+
+},[]);
+
+
+
+
+
+async function updateStatus(id:string,status:string){
+
+
+await updateDoc(
+doc(db,"caregiverRequests",id),
+{
+
+status:status
+
+}
+
+);
+
 
 }
 
 
 
 
-const styles = StyleSheet.create({
+
+return(
+
+<View style={styles.container}>
+
+
+<Text style={styles.title}>
+🔔 Notifications
+</Text>
+
+
+
+{
+requests.length===0 ?
+
+
+<Text style={styles.empty}>
+No new caregiver requests
+</Text>
+
+
+:
+
+
+requests.map((item)=>(
+
+
+<View 
+style={styles.card}
+key={item.id}
+>
+
+
+<Text style={styles.heading}>
+New Caregiver Booking
+</Text>
+
+
+<Text style={styles.text}>
+A family member requested your service
+</Text>
+
+
+<Text style={styles.text}>
+📦 Plan: {item.plan}
+</Text>
+
+
+<Text style={styles.text}>
+⏰ Time: {item.preferredTime}
+</Text>
+
+
+<Text style={styles.text}>
+📍 Location: {item.location}
+</Text>
+
+
+
+
+<View style={styles.row}>
+
+
+<TouchableOpacity
+style={styles.accept}
+onPress={()=>updateStatus(item.id,"accepted")}
+>
+
+<Text style={styles.btn}>
+Accept
+</Text>
+
+</TouchableOpacity>
+
+
+
+<TouchableOpacity
+style={styles.reject}
+onPress={()=>updateStatus(item.id,"rejected")}
+>
+
+<Text style={styles.btn}>
+Reject
+</Text>
+
+</TouchableOpacity>
+
+
+</View>
+
+
+
+</View>
+
+
+))
+
+}
+
+
+</View>
+
+);
+
+
+}
+
+
+
+const styles=StyleSheet.create({
 
 
 container:{
- flex:1,
- padding:25,
- paddingTop:60,
- backgroundColor:"#fff",
+flex:1,
+padding:25,
+paddingTop:60,
+backgroundColor:"#fff"
 },
 
 
 title:{
- fontSize:28,
- fontWeight:"bold",
- marginBottom:25,
+fontSize:28,
+fontWeight:"bold",
+marginBottom:30
 },
 
 
 card:{
- backgroundColor:"#f1f5f9",
- padding:20,
- borderRadius:15,
+backgroundColor:"#EEF2FF",
+padding:20,
+borderRadius:20,
+marginBottom:20
 },
 
 
-name:{
- fontSize:20,
- fontWeight:"bold",
- marginBottom:15,
+heading:{
+fontSize:20,
+fontWeight:"bold",
+marginBottom:10
 },
 
 
 text:{
- fontSize:16,
- marginBottom:8,
+fontSize:16,
+marginBottom:10
 },
 
 
-buttonRow:{
- flexDirection:"row",
- marginTop:20,
- gap:15,
+row:{
+flexDirection:"row",
+gap:15,
+marginTop:15
 },
 
 
-acceptBtn:{
- backgroundColor:"#22c55e",
- padding:15,
- borderRadius:10,
- flex:1,
- alignItems:"center",
+accept:{
+flex:1,
+backgroundColor:"#22c55e",
+padding:14,
+borderRadius:12,
+alignItems:"center"
 },
 
 
-rejectBtn:{
- backgroundColor:"#ef4444",
- padding:15,
- borderRadius:10,
- flex:1,
- alignItems:"center",
+reject:{
+flex:1,
+backgroundColor:"#ef4444",
+padding:14,
+borderRadius:12,
+alignItems:"center"
 },
 
 
-buttonText:{
- color:"white",
- fontWeight:"bold",
- fontSize:16,
+btn:{
+color:"white",
+fontWeight:"bold"
 },
+
+
+empty:{
+fontSize:18,
+color:"gray",
+textAlign:"center",
+marginTop:100
+}
 
 
 });

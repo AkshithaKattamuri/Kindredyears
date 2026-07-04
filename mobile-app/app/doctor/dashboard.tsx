@@ -1,7 +1,10 @@
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 
-export default function DoctorDashboard() {
+export default function DoctorDashboard(){
+
+const router = useRouter();
 
 
 return(
@@ -20,17 +23,23 @@ Welcome Doctor 👨‍⚕️
 
 
 
-<TouchableOpacity style={styles.card}>
+<TouchableOpacity
+style={styles.card}
+onPress={()=>router.push("/doctor/appointments")}
+>
 
 <Text style={styles.cardText}>
-📅 Appointment Requests
+📅 Appointments
 </Text>
 
 </TouchableOpacity>
 
 
 
-<TouchableOpacity style={styles.card}>
+<TouchableOpacity
+style={styles.card}
+onPress={()=>router.push("/doctor/patient")}
+>
 
 <Text style={styles.cardText}>
 👵 Patient Details
@@ -40,7 +49,10 @@ Welcome Doctor 👨‍⚕️
 
 
 
-<TouchableOpacity style={styles.card}>
+<TouchableOpacity
+style={styles.card}
+onPress={()=>router.push("/doctor/reports")}
+>
 
 <Text style={styles.cardText}>
 📄 Medical Reports
@@ -50,10 +62,26 @@ Welcome Doctor 👨‍⚕️
 
 
 
-<TouchableOpacity style={styles.card}>
+<TouchableOpacity
+style={styles.card}
+onPress={()=>router.push("/doctor/video")}
+>
 
 <Text style={styles.cardText}>
-🎥 Video Consultation
+📹 Video Consultation
+</Text>
+
+</TouchableOpacity>
+
+
+
+<TouchableOpacity
+style={styles.card}
+onPress={()=>router.push("/doctor/location")}
+>
+
+<Text style={styles.cardText}>
+📍 Hospital Location
 </Text>
 
 </TouchableOpacity>
@@ -70,41 +98,40 @@ Welcome Doctor 👨‍⚕️
 
 const styles=StyleSheet.create({
 
-
 container:{
 flex:1,
 padding:25,
 paddingTop:60,
-backgroundColor:"#fff"
+backgroundColor:"#fff",
 },
 
 
 title:{
 fontSize:30,
-fontWeight:"bold"
+fontWeight:"bold",
 },
 
 
 subtitle:{
 fontSize:18,
 color:"gray",
+marginTop:8,
 marginBottom:30,
-marginTop:8
 },
 
 
 card:{
-backgroundColor:"#dcfce7",
+backgroundColor:"#dbeafe",
 padding:22,
 borderRadius:15,
-marginBottom:18
+marginBottom:18,
 },
 
 
 cardText:{
 fontSize:18,
-fontWeight:"600"
-}
+fontWeight:"600",
+},
 
 
 });

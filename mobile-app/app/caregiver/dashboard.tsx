@@ -1,7 +1,10 @@
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 
 export default function CaregiverDashboard() {
+
+  const router = useRouter();
 
 
   return (
@@ -20,7 +23,11 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity style={styles.card}>
+
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push("/caregiver/requests")}
+      >
 
         <Text style={styles.cardText}>
           📩 Booking Requests
@@ -31,7 +38,11 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity style={styles.card}>
+
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push("/caregiver/patient")}
+      >
 
         <Text style={styles.cardText}>
           👵 Patient Details
@@ -42,7 +53,11 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity style={styles.card}>
+
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push("/caregiver/update")}
+      >
 
         <Text style={styles.cardText}>
           📝 Daily Care Update
@@ -53,7 +68,11 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity style={styles.card}>
+
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push("/caregiver/location")}
+      >
 
         <Text style={styles.cardText}>
           📍 Patient Location
@@ -68,6 +87,7 @@ export default function CaregiverDashboard() {
   );
 
 }
+
 
 
 

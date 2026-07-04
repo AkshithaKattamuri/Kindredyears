@@ -1,52 +1,236 @@
-import { StyleSheet, Text, View } from "react-native";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+
+import { useEffect, useState } from "react";
+
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { db } from "../../config/firebase";
 
 
-export default function DoctorPatient(){
+
+export default function DoctorPatients(){
+
+
+const [patients,setPatients] = useState<any[]>([]);
+const [history,setHistory] = useState<any[]>([]);
+
+
+
+useEffect(()=>{
+
+
+// Accepted appointments
+
+const activeQuery = query(
+collection(db,"doctorAppointments"),
+where("status","==","accepted")
+);
+
+
+
+const unsub1 = onSnapshot(
+activeQuery,
+(snapshot)=>{
+
+
+const data=snapshot.docs.map(doc=>({
+
+id:doc.id,
+...doc.data()
+
+}));
+
+setPatients(data);
+
+});
+
+
+
+
+// Previous appointments
+
+const historyQuery=query(
+
+collection(db,"doctorAppointments"),
+
+where("status","==","completed")
+
+);
+
+
+
+const unsub2=onSnapshot(
+historyQuery,
+(snapshot)=>{
+
+
+const data=snapshot.docs.map(doc=>({
+
+id:doc.id,
+...doc.data()
+
+}));
+
+
+setHistory(data);
+
+
+});
+
+
+
+return()=>{
+
+unsub1();
+unsub2();
+
+};
+
+
+},[]);
+
+
 
 
 return(
 
-<View style={styles.container}>
+<ScrollView style={styles.container}>
 
 
 <Text style={styles.title}>
-Patient Details
+👨‍⚕️ Patient Details
 </Text>
 
 
 
-<View style={styles.card}>
+
+
+<Text style={styles.section}>
+🟢 Current Patients
+</Text>
+
+
+
+{
+
+patients.length===0 ?
+
+
+<Text style={styles.empty}>
+No accepted patients
+</Text>
+
+
+:
+
+
+patients.map((patient)=>(
+
+
+<View 
+key={patient.id}
+style={styles.card}
+>
 
 
 <Text style={styles.name}>
-👵 Lakshmi Devi
+👤 {patient.patientName || "Patient"}
 </Text>
 
 
 <Text style={styles.text}>
-Age: 72
+📅 Appointment:
+{patient.appointmentDate}
 </Text>
 
 
 <Text style={styles.text}>
-Blood Group: O+
+⏰ Time:
+{patient.appointmentTime}
 </Text>
 
 
 <Text style={styles.text}>
-Health Issues: Diabetes, High BP
+🩺 Problem:
+{patient.reason}
 </Text>
 
 
 <Text style={styles.text}>
-Current Medicine: BP Tablet
+📄 Reports available
+</Text>
+
+
+
+</View>
+
+
+))
+
+}
+
+
+
+
+
+<Text style={styles.section}>
+📜 Patient History
+</Text>
+
+
+
+{
+
+history.length===0 ?
+
+<Text style={styles.empty}>
+No previous patients
+</Text>
+
+
+:
+
+
+history.map((patient)=>(
+
+
+<View
+key={patient.id}
+style={styles.history}
+>
+
+
+<Text style={styles.name}>
+👤 {patient.patientName}
+</Text>
+
+
+<Text style={styles.text}>
+Completed Appointment
 </Text>
 
 
 </View>
 
 
-</View>
+))
+
+}
+
+
+
+</ScrollView>
+
 
 );
 
@@ -57,10 +241,12 @@ Current Medicine: BP Tablet
 
 const styles=StyleSheet.create({
 
+
 container:{
 flex:1,
 padding:25,
-paddingTop:60
+paddingTop:60,
+backgroundColor:"#fff"
 },
 
 
@@ -71,23 +257,46 @@ marginBottom:25
 },
 
 
-card:{
-backgroundColor:"#f1f5f9",
-padding:20,
-borderRadius:15
-},
-
-
-name:{
-fontSize:22,
-fontWeight:"bold",
+section:{
+fontSize:20,
+fontWeight:"700",
 marginBottom:15
 },
 
 
-text:{
-fontSize:17,
+card:{
+backgroundColor:"#ECFDF5",
+padding:20,
+borderRadius:18,
+marginBottom:20
+},
+
+
+history:{
+backgroundColor:"#F1F5F9",
+padding:20,
+borderRadius:18,
+marginBottom:20
+},
+
+
+name:{
+fontSize:20,
+fontWeight:"bold",
 marginBottom:10
+},
+
+
+text:{
+fontSize:16,
+marginBottom:8
+},
+
+
+empty:{
+fontSize:16,
+color:"gray",
+marginBottom:20
 }
 
 

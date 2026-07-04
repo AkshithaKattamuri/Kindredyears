@@ -1,10 +1,15 @@
 import { router } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase";
+
+import {
+  signInWithEmailAndPassword
+} from "firebase/auth";
+
+import {
+  doc,
+  getDoc
+} from "firebase/firestore";
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,313 +22,446 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { auth, db } from "../config/firebase";
 
 
+
 export default function SignInScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
-  async function handleSignIn() {
-  if (!email.trim() || !password) {
-    Alert.alert(
-      "Missing Details",
-      "Please enter your email and password."
-    );
-    return;
-  }
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
+const [email,setEmail] = useState("");
+const [password,setPassword] = useState("");
 
-    const user = userCredential.user;
 
-    const userDoc = await getDoc(
-      doc(db, "users", user.uid)
-    );
 
-    if (!userDoc.exists()) {
-      Alert.alert(
-        "Profile Not Found",
-        "Your Kindred Years profile was not found."
-      );
-      return;
-    }
+async function handleSignIn(){
 
-    const userData = userDoc.data();
-<<<<<<< HEAD
-    console.log("FULL USER DATA:", userData);
 
-    const role = userData.role || "";
-    console.log("ROLE FROM FIREBASE:", role);
-=======
+if(!email.trim() || !password){
 
-    const role = userData.role;
->>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
-    const verificationStatus = userData.verificationStatus;
 
-    if (
-      (role === "caregiver" || role === "doctor") &&
-      verificationStatus !== "approved"
-    ) {
-      Alert.alert(
-        "Verification Pending",
-        "Your account is waiting for admin approval."
-      );
-      return;
-    }
-<<<<<<< HEAD
-    const userRole = role.toLowerCase();
-     if (userRole === "caregiver") {
-      router.replace("/caregiver/dashboard" as any);
-    } else if (userRole === "doctor") {
-      router.replace("/doctor/dashboard" as any);
-    } else {
-       console.log("UNKNOWN ROLE:", userRole);
-=======
+Alert.alert(
+"Missing Details",
+"Please enter email and password"
+);
 
-    if (role === "elderly") {
-      router.replace("/elderly/elderly-dashboard");
-    } 
-    else if (role === "caregiver") {
-      router.replace("/caregiver/dashboard" as any);
-    }else {
->>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
-      Alert.alert(
-        "Invalid Role",
-        "Your account role could not be recognized."
-      );
-    }
-  } catch (error: any) {
-    console.log("Sign in error:", error);
 
-    if (
-      error.code === "auth/invalid-credential" ||
-      error.code === "auth/wrong-password" ||
-      error.code === "auth/user-not-found"
-    ) {
-      Alert.alert(
-        "Sign In Failed",
-        "Invalid email or password."
-      );
-    } else if (error.code === "auth/network-request-failed") {
-      Alert.alert(
-        "Network Error",
-        "Please check your internet connection."
-      );
-    } else {
-      Alert.alert(
-        "Sign In Failed",
-        error.message || "Something went wrong."
-      );
-    }
-  }
-}
-<<<<<<< HEAD
+return;
 
-=======
->>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backText}>{"< Back"}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
-
-            <Text style={styles.subtitle}>
-              Sign in to continue to Kindred Years
-            </Text>
-          </View>
-
-          <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#9999A8"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.label}>Password</Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#9999A8"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            <TouchableOpacity style={styles.forgotButton}>
-              <Text style={styles.forgotText}>
-                Forgot Password?
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.signInButton}
-              onPress={handleSignIn}
-            >
-              <Text style={styles.signInButtonText}>
-                Sign In
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Don't have an account?{" "}
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => router.push("/sign-up")}
-            >
-              <Text style={styles.createText}>
-                Create Account
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F7FF",
-  },
 
-  flex: {
-    flex: 1,
-  },
 
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 30,
-  },
+try{
 
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 12,
-    marginBottom: 35,
-  },
 
-  backText: {
-    color: "#4A3FB5",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+const userCredential =
+await signInWithEmailAndPassword(
+auth,
+email.trim(),
+password
+);
 
-  header: {
-    marginBottom: 35,
-  },
 
-  title: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#1E1E2F",
-    marginBottom: 10,
-  },
 
-  subtitle: {
-    fontSize: 16,
-    color: "#666677",
-    lineHeight: 24,
-  },
+const user = userCredential.user;
 
-  form: {
-    width: "100%",
-  },
 
-  label: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#303044",
-    marginBottom: 8,
-  },
 
-  input: {
-    width: "100%",
-    height: 56,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#DDDCE8",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: "#1E1E2F",
-    marginBottom: 20,
-  },
+const userDoc = await getDoc(
+doc(
+db,
+"users",
+user.uid
+)
+);
 
-  forgotButton: {
-    alignSelf: "flex-end",
-    marginTop: -4,
-    marginBottom: 25,
-  },
 
-  forgotText: {
-    color: "#4A3FB5",
-    fontSize: 14,
-    fontWeight: "600",
-  },
 
-  signInButton: {
-    width: "100%",
-    height: 56,
-    backgroundColor: "#4A3FB5",
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+if(!userDoc.exists()){
 
-  signInButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
 
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 30,
-  },
+Alert.alert(
+"Profile Not Found",
+"User profile not found"
+);
 
-  footerText: {
-    color: "#666677",
-    fontSize: 15,
-  },
 
-  createText: {
-    color: "#4A3FB5",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+return;
+
+
+}
+
+
+
+const userData = userDoc.data();
+
+
+const role =
+userData.role?.toLowerCase();
+
+
+const verificationStatus =
+userData.verificationStatus;
+
+
+
+
+// doctor + caregiver approval check
+
+if(
+(role === "doctor" ||
+role === "caregiver")
+&&
+verificationStatus !== "approved"
+){
+
+
+Alert.alert(
+"Verification Pending",
+"Waiting for admin approval"
+);
+
+
+return;
+
+
+}
+
+
+
+
+
+// ROUTES
+
+
+if(role === "elderly"){
+
+
+router.replace(
+"/elderly/elderly-dashboard" as any
+);
+
+
+}
+
+
+
+else if(role === "caregiver"){
+
+
+router.replace(
+"/caregiver/dashboard" as any
+);
+
+
+}
+
+
+
+else if(role === "doctor"){
+
+
+router.replace(
+"/doctor/dashboard" as any
+);
+
+
+}
+
+
+
+
+else if(role === "admin"){
+
+
+router.replace(
+"/admin/dashboard" as any
+);
+
+
+}
+
+
+
+else{
+
+
+Alert.alert(
+"Invalid Role",
+"Your account role cannot be recognized"
+);
+
+
+}
+
+
+
+}
+
+catch(error:any){
+
+
+console.log(
+"LOGIN ERROR:",
+error
+);
+
+
+Alert.alert(
+"Login Failed",
+error.message
+);
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+return(
+
+<SafeAreaView style={styles.container}>
+
+
+<KeyboardAvoidingView
+style={{flex:1}}
+behavior={
+Platform.OS==="ios"
+?"padding"
+:undefined
+}
+>
+
+
+<ScrollView
+contentContainerStyle={styles.scroll}
+>
+
+
+<Text style={styles.title}>
+Welcome Back
+</Text>
+
+
+
+<Text style={styles.subtitle}>
+Sign in to continue Kindred Years
+</Text>
+
+
+
+
+
+<TextInput
+
+style={styles.input}
+
+placeholder="Email"
+
+value={email}
+
+onChangeText={setEmail}
+
+autoCapitalize="none"
+
+/>
+
+
+
+
+
+<TextInput
+
+style={styles.input}
+
+placeholder="Password"
+
+value={password}
+
+onChangeText={setPassword}
+
+secureTextEntry
+
+/>
+
+
+
+
+
+<TouchableOpacity
+style={styles.button}
+onPress={handleSignIn}
+>
+
+
+<Text style={styles.buttonText}>
+Sign In
+</Text>
+
+
+</TouchableOpacity>
+
+
+
+
+
+<TouchableOpacity
+onPress={() =>
+router.push("/sign-up")
+}
+>
+
+
+<Text style={styles.signup}>
+Create Account
+</Text>
+
+
+</TouchableOpacity>
+
+
+
+
+</ScrollView>
+
+
+</KeyboardAvoidingView>
+
+
+</SafeAreaView>
+
+
+);
+
+
+}
+
+
+
+
+
+
+
+const styles=StyleSheet.create({
+
+
+container:{
+
+flex:1,
+
+backgroundColor:"#F8F7FF"
+
+},
+
+
+
+scroll:{
+
+flexGrow:1,
+
+justifyContent:"center",
+
+padding:25
+
+},
+
+
+
+title:{
+
+fontSize:34,
+
+fontWeight:"bold",
+
+marginBottom:10,
+
+color:"#1E1E2F"
+
+},
+
+
+
+subtitle:{
+
+fontSize:16,
+
+color:"gray",
+
+marginBottom:30
+
+},
+
+
+
+input:{
+
+height:55,
+
+backgroundColor:"white",
+
+borderRadius:14,
+
+paddingHorizontal:15,
+
+fontSize:16,
+
+marginBottom:20,
+
+borderWidth:1,
+
+borderColor:"#DDD"
+
+},
+
+
+
+button:{
+
+height:55,
+
+backgroundColor:"#4A3FB5",
+
+borderRadius:14,
+
+justifyContent:"center",
+
+alignItems:"center"
+
+},
+
+
+
+buttonText:{
+
+color:"white",
+
+fontSize:17,
+
+fontWeight:"bold"
+
+},
+
+
+
+signup:{
+
+textAlign:"center",
+
+marginTop:25,
+
+color:"#4A3FB5",
+
+fontWeight:"bold"
+
+}
+
+
 });

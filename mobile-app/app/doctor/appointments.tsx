@@ -1,50 +1,173 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+collection,
+doc,
+onSnapshot,
+query,
+updateDoc,
+where
+} from "firebase/firestore";
 
 
-export default function Appointments(){
+import { useEffect, useState } from "react";
+
+
+import {
+ScrollView,
+StyleSheet,
+Text,
+TouchableOpacity,
+View
+} from "react-native";
+
+
+import { db } from "../../config/firebase";
+
+
+
+
+export default function DoctorAppointments(){
+
+
+const [appointments,setAppointments]=useState<any[]>([]);
+
+
+
+useEffect(()=>{
+
+
+const q=query(
+
+collection(db,"doctorAppointments"),
+
+where("status","==","pending")
+
+);
+
+
+
+const unsubscribe=onSnapshot(q,(snapshot)=>{
+
+
+const data=snapshot.docs.map(doc=>({
+
+id:doc.id,
+
+...doc.data()
+
+}));
+
+
+setAppointments(data);
+
+
+});
+
+
+return unsubscribe;
+
+
+},[]);
+
+
+
+
+
+async function changeStatus(id:string,status:string){
+
+
+await updateDoc(
+
+doc(db,"doctorAppointments",id),
+
+{
+
+status:status
+
+}
+
+);
+
+
+}
+
+
+
+
+
 
 
 return(
 
-<View style={styles.container}>
+
+<ScrollView style={styles.container}>
 
 
 <Text style={styles.title}>
-Appointment Requests
+🔔 Appointment Requests
 </Text>
 
 
 
-<View style={styles.card}>
+{
+
+appointments.length===0 ?
+
+<Text style={styles.empty}>
+No new appointments
+</Text>
 
 
-<Text style={styles.name}>
-👵 Patient: Lakshmi Devi
+:
+
+
+appointments.map((item)=>(
+
+
+<View
+key={item.id}
+style={styles.card}
+>
+
+
+<Text style={styles.heading}>
+New Doctor Appointment
 </Text>
 
 
 <Text style={styles.text}>
-Problem: Blood Pressure Checkup
+👤 Patient: {item.patientName || "Patient"}
 </Text>
 
 
 <Text style={styles.text}>
-Date: 10 July 2026
+📅 Date: {item.appointmentDate}
 </Text>
 
 
 <Text style={styles.text}>
-Time: 11:00 AM
+⏰ Time: {item.appointmentTime}
 </Text>
+
+
+<Text style={styles.text}>
+🩺 Reason: {item.reason}
+</Text>
+
 
 
 
 <View style={styles.row}>
 
 
-<TouchableOpacity style={styles.accept}>
+<TouchableOpacity
+style={styles.accept}
 
-<Text style={styles.btnText}>
+onPress={()=>
+changeStatus(item.id,"accepted")
+}
+>
+
+<Text style={styles.btn}>
 Accept
 </Text>
 
@@ -52,27 +175,47 @@ Accept
 
 
 
-<TouchableOpacity style={styles.reject}>
 
-<Text style={styles.btnText}>
+
+<TouchableOpacity
+style={styles.reject}
+
+onPress={()=>
+changeStatus(item.id,"rejected")
+}
+
+>
+
+<Text style={styles.btn}>
 Reject
 </Text>
 
 </TouchableOpacity>
 
 
-</View>
-
-
 
 </View>
 
 
 </View>
+
+
+))
+
+}
+
+
+
+</ScrollView>
+
 
 );
 
+
 }
+
+
+
 
 
 
@@ -82,10 +225,11 @@ const styles=StyleSheet.create({
 
 container:{
 flex:1,
+backgroundColor:"#fff",
 padding:25,
-paddingTop:60,
-backgroundColor:"#fff"
+paddingTop:60
 },
+
 
 
 title:{
@@ -95,54 +239,71 @@ marginBottom:25
 },
 
 
+
 card:{
-backgroundColor:"#f1f5f9",
+backgroundColor:"#EEF2FF",
 padding:20,
-borderRadius:15
+borderRadius:18,
+marginBottom:20
 },
 
 
-name:{
+
+heading:{
 fontSize:20,
 fontWeight:"bold",
-marginBottom:10
+marginBottom:15
 },
+
 
 
 text:{
 fontSize:16,
-marginBottom:8
+marginBottom:10
 },
+
 
 
 row:{
 flexDirection:"row",
 gap:15,
-marginTop:20
+marginTop:15
 },
+
 
 
 accept:{
-backgroundColor:"#22c55e",
-padding:15,
 flex:1,
-borderRadius:10,
+backgroundColor:"#22c55e",
+padding:14,
+borderRadius:12,
 alignItems:"center"
 },
+
 
 
 reject:{
-backgroundColor:"#ef4444",
-padding:15,
 flex:1,
-borderRadius:10,
+backgroundColor:"#ef4444",
+padding:14,
+borderRadius:12,
 alignItems:"center"
 },
 
 
-btnText:{
+
+btn:{
 color:"white",
 fontWeight:"bold"
+},
+
+
+
+empty:{
+fontSize:18,
+color:"gray",
+textAlign:"center",
+marginTop:100
 }
 
 

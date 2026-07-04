@@ -1,68 +1,130 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+
+import { useEffect, useState } from "react";
+
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { db } from "../../config/firebase";
 
 
-export default function VideoConsultation() {
+
+export default function VideoCalls(){
+
+
+const [calls,setCalls]=useState<any[]>([]);
+
+
+
+useEffect(()=>{
+
+
+const q=query(
+
+collection(db,"doctorAppointments"),
+
+where("status","==","accepted")
+
+);
+
+
+
+const unsubscribe=onSnapshot(q,(snapshot)=>{
+
+
+const data=snapshot.docs.map(doc=>({
+
+id:doc.id,
+
+...doc.data()
+
+}));
+
+
+setCalls(data);
+
+
+});
+
+
+return unsubscribe;
+
+
+},[]);
+
+
+
 
 
 return(
 
-<View style={styles.container}>
+<ScrollView style={styles.container}>
 
 
 <Text style={styles.title}>
-Video Consultation
+📹 Video Consultations
 </Text>
 
 
 
-<View style={styles.videoBox}>
+{
 
+calls.length===0 ?
 
-<Text style={styles.icon}>
-🎥
+<Text style={styles.empty}>
+No scheduled video calls
 </Text>
 
 
-<Text style={styles.waiting}>
-Waiting for consultation...
-</Text>
+:
 
 
-</View>
+calls.map((call)=>(
 
 
-
-<View style={styles.card}>
-
-
-<Text style={styles.name}>
-👵 Patient: Lakshmi Devi
-</Text>
+<View
+key={call.id}
+style={styles.card}
+>
 
 
-<Text style={styles.text}>
-Doctor: Dr. Sharma
+<Text style={styles.heading}>
+Upcoming Video Call
 </Text>
 
 
 <Text style={styles.text}>
-Appointment:
-10 July 2026
+👤 Patient: {call.patientName || "Patient"}
 </Text>
 
 
 <Text style={styles.text}>
-Time: 11:00 AM
+📅 Date: {call.appointmentDate}
+</Text>
+
+
+<Text style={styles.text}>
+⏰ Time: {call.appointmentTime}
+</Text>
+
+
+<Text style={styles.text}>
+🩺 Reason: {call.reason}
 </Text>
 
 
 
-</View>
-
-
-
-
-<TouchableOpacity style={styles.startButton}>
+<TouchableOpacity style={styles.button}>
 
 
 <Text style={styles.buttonText}>
@@ -74,20 +136,17 @@ Start Video Call
 
 
 
-
-<TouchableOpacity style={styles.endButton}>
-
-
-<Text style={styles.buttonText}>
-End Call
-</Text>
-
-
-</TouchableOpacity>
-
-
-
 </View>
+
+
+))
+
+}
+
+
+
+</ScrollView>
+
 
 );
 
@@ -95,88 +154,68 @@ End Call
 
 
 
-const styles = StyleSheet.create({
+
+const styles=StyleSheet.create({
 
 
 container:{
 flex:1,
+backgroundColor:"#fff",
 padding:25,
 paddingTop:60,
-backgroundColor:"#fff"
 },
 
 
 title:{
 fontSize:28,
 fontWeight:"bold",
-marginBottom:25
-},
-
-
-videoBox:{
-height:220,
-backgroundColor:"#e5e7eb",
-borderRadius:15,
-justifyContent:"center",
-alignItems:"center",
-marginBottom:25
-},
-
-
-icon:{
-fontSize:50
-},
-
-
-waiting:{
-fontSize:18,
-marginTop:10
+marginBottom:25,
 },
 
 
 card:{
-backgroundColor:"#f1f5f9",
+backgroundColor:"#EEF2FF",
 padding:20,
-borderRadius:15,
-marginBottom:25
+borderRadius:18,
+marginBottom:20,
 },
 
 
-name:{
+heading:{
 fontSize:20,
 fontWeight:"bold",
-marginBottom:10
+marginBottom:15,
 },
 
 
 text:{
 fontSize:16,
-marginBottom:8
+marginBottom:10,
 },
 
 
-startButton:{
-backgroundColor:"#22c55e",
-padding:16,
+button:{
+backgroundColor:"#4A3FB5",
+padding:15,
 borderRadius:12,
 alignItems:"center",
-marginBottom:15
-},
-
-
-endButton:{
-backgroundColor:"#ef4444",
-padding:16,
-borderRadius:12,
-alignItems:"center"
+marginTop:15,
 },
 
 
 buttonText:{
 color:"white",
 fontSize:16,
-fontWeight:"bold"
-}
+fontWeight:"bold",
+},
+
+
+empty:{
+fontSize:18,
+color:"gray",
+textAlign:"center",
+marginTop:100,
+},
 
 
 });
