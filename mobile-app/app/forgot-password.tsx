@@ -10,17 +10,24 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 
-export default function SignInScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
-  function handleSignIn() {
-    console.log("Sign in pressed");
-    console.log("Email:", email);
+  function handleResetPassword() {
+    if (!email) {
+      Alert.alert("Missing Email", "Please enter your email address.");
+      return;
+    }
 
-    // Firebase Authentication will be added later
+    Alert.alert(
+      "Reset Link Sent",
+      `A password reset link will be sent to:\n${email}`
+    );
+
+    // Firebase password reset will be added later
   }
 
   return (
@@ -41,10 +48,11 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Forgot Password</Text>
 
             <Text style={styles.subtitle}>
-              Sign in to continue to Kindred Years
+              Enter your registered email address and we'll send you a password
+              reset link.
             </Text>
           </View>
 
@@ -62,47 +70,26 @@ export default function SignInScreen() {
               autoCorrect={false}
             />
 
-            <Text style={styles.label}>Password</Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#9999A8"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            {/* Forgot Password Navigation */}
             <TouchableOpacity
-              style={styles.forgotButton}
-              onPress={() => router.push("/forgot-password")}
+              style={styles.resetButton}
+              onPress={handleResetPassword}
             >
-              <Text style={styles.forgotText}>
-                Forgot Password?
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.signInButton}
-              onPress={handleSignIn}
-            >
-              <Text style={styles.signInButtonText}>
-                Sign In
+              <Text style={styles.resetButtonText}>
+                Send Reset Link
               </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Don't have an account?{" "}
+              Remember your password?{" "}
             </Text>
 
             <TouchableOpacity
-              onPress={() => router.push("/sign-up")}
+              onPress={() => router.push("/sign-in")}
             >
-              <Text style={styles.createText}>
-                Create Account
+              <Text style={styles.signInText}>
+                Sign In
               </Text>
             </TouchableOpacity>
           </View>
@@ -179,22 +166,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: "#1E1E2F",
-    marginBottom: 20,
+    marginBottom: 30,
   },
 
-  forgotButton: {
-    alignSelf: "flex-end",
-    marginTop: -4,
-    marginBottom: 25,
-  },
-
-  forgotText: {
-    color: "#4A3FB5",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  signInButton: {
+  resetButton: {
     width: "100%",
     height: 56,
     backgroundColor: "#4A3FB5",
@@ -203,7 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  signInButtonText: {
+  resetButtonText: {
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
@@ -221,7 +196,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  createText: {
+  signInText: {
     color: "#4A3FB5",
     fontSize: 15,
     fontWeight: "700",
