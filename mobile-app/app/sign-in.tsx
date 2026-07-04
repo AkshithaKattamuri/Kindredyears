@@ -2,6 +2,9 @@ import { router } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../config/firebase";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -52,10 +55,15 @@ export default function SignInScreen() {
     }
 
     const userData = userDoc.data();
+<<<<<<< HEAD
     console.log("FULL USER DATA:", userData);
 
     const role = userData.role || "";
     console.log("ROLE FROM FIREBASE:", role);
+=======
+
+    const role = userData.role;
+>>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
     const verificationStatus = userData.verificationStatus;
 
     if (
@@ -68,6 +76,7 @@ export default function SignInScreen() {
       );
       return;
     }
+<<<<<<< HEAD
     const userRole = role.toLowerCase();
      if (userRole === "caregiver") {
       router.replace("/caregiver/dashboard" as any);
@@ -75,6 +84,15 @@ export default function SignInScreen() {
       router.replace("/doctor/dashboard" as any);
     } else {
        console.log("UNKNOWN ROLE:", userRole);
+=======
+
+    if (role === "elderly") {
+      router.replace("/elderly/elderly-dashboard");
+    } 
+    else if (role === "caregiver") {
+      router.replace("/caregiver/dashboard" as any);
+    }else {
+>>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
       Alert.alert(
         "Invalid Role",
         "Your account role could not be recognized."
@@ -105,7 +123,10 @@ export default function SignInScreen() {
     }
   }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0b38de2f0a251fc0109cc25f38b526bb0f5c51a3
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
