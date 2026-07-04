@@ -17,12 +17,9 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
 
   function handleSignIn() {
-    console.log("Sign in pressed");
-    console.log("Email:", email);
-
-    // Firebase Authentication will be added later
-  }
-
+  console.log("Sign in pressed");
+  console.log("Email:", email);
+}
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
