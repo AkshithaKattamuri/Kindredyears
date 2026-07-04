@@ -1,6 +1,10 @@
 import { router } from "expo-router";
 import { useState } from "react";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db } from "../config/firebase";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -21,12 +25,84 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
-  function handleCreateAccount() {
-    console.log("Full Name:", fullName);
-    console.log("Email:", email);
-    console.log("Phone:", phone);
-    console.log("Role:", selectedRole);
+  async function handleCreateAccount() {
+  
+  if (!fullName.trim() || !email.trim() || !phone.trim() || !password) {
+    Alert.alert("Missing Details", "Please fill in all fields.");
+    return;
   }
+
+  if (!selectedRole) {
+    Alert.alert("Select Role", "Please select your role.");
+    return;
+  }
+
+  if (password.length < 6) {
+    Alert.alert(
+      "Weak Password",
+      "Password must contain at least 6 characters."
+    );
+    return;
+  }
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+
+    const user = userCredential.user;
+
+    const verificationStatus =
+      selectedRole === "caregiver" || selectedRole === "doctor"
+        ? "pending"
+        : "approved";
+
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      role: selectedRole,
+      verificationStatus,
+      createdAt: serverTimestamp(),
+    });
+
+    Alert.alert(
+      "Account Created",
+      selectedRole === "caregiver" || selectedRole === "doctor"
+        ? "Your account is waiting for admin verification."
+        : "Your account was created successfully."
+    );
+
+    router.replace("/sign-in");
+  } catch (error: any) {
+    console.log("Signup error:", error);
+
+    if (error.code === "auth/email-already-in-use") {
+      Alert.alert(
+        "Account Exists",
+        "An account already exists with this email."
+      );
+    } else if (error.code === "auth/invalid-email") {
+      Alert.alert(
+        "Invalid Email",
+        "Please enter a valid email address."
+      );
+    } else if (error.code === "auth/weak-password") {
+      Alert.alert(
+        "Weak Password",
+        "Please choose a stronger password."
+      );
+    } else {
+      Alert.alert(
+        "Signup Failed",
+        error.message || "Something went wrong."
+      );
+    }
+  }
+}
 
   return (
     <SafeAreaView style={styles.container}>

@@ -1,6 +1,9 @@
 import { router } from "expo-router";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -11,15 +14,97 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { auth, db } from "../config/firebase";
+
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSignIn() {
-    console.log("Sign in pressed");
-    console.log("Email:", email);
+  async function handleSignIn() {
+  if (!email.trim() || !password) {
+    Alert.alert(
+      "Missing Details",
+      "Please enter your email and password."
+    );
+    return;
   }
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+
+    const user = userCredential.user;
+
+    const userDoc = await getDoc(
+      doc(db, "users", user.uid)
+    );
+
+    if (!userDoc.exists()) {
+      Alert.alert(
+        "Profile Not Found",
+        "Your Kindred Years profile was not found."
+      );
+      return;
+    }
+
+    const userData = userDoc.data();
+    console.log("FULL USER DATA:", userData);
+
+    const role = userData.role || "";
+    console.log("ROLE FROM FIREBASE:", role);
+    const verificationStatus = userData.verificationStatus;
+
+    if (
+      (role === "caregiver" || role === "doctor") &&
+      verificationStatus !== "approved"
+    ) {
+      Alert.alert(
+        "Verification Pending",
+        "Your account is waiting for admin approval."
+      );
+      return;
+    }
+    const userRole = role.toLowerCase();
+     if (userRole === "caregiver") {
+      router.replace("/caregiver/dashboard" as any);
+    } else if (userRole === "doctor") {
+      router.replace("/doctor/dashboard" as any);
+    } else {
+       console.log("UNKNOWN ROLE:", userRole);
+      Alert.alert(
+        "Invalid Role",
+        "Your account role could not be recognized."
+      );
+    }
+  } catch (error: any) {
+    console.log("Sign in error:", error);
+
+    if (
+      error.code === "auth/invalid-credential" ||
+      error.code === "auth/wrong-password" ||
+      error.code === "auth/user-not-found"
+    ) {
+      Alert.alert(
+        "Sign In Failed",
+        "Invalid email or password."
+      );
+    } else if (error.code === "auth/network-request-failed") {
+      Alert.alert(
+        "Network Error",
+        "Please check your internet connection."
+      );
+    } else {
+      Alert.alert(
+        "Sign In Failed",
+        error.message || "Something went wrong."
+      );
+    }
+  }
+}
 
   return (
     <SafeAreaView style={styles.container}>

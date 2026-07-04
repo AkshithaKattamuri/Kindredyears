@@ -1,10 +1,8 @@
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 
-export default function CaregiverDashboard() {
-
-  const router = useRouter();
+export default function Index() {
 
 
   return (
@@ -13,62 +11,36 @@ export default function CaregiverDashboard() {
 
 
       <Text style={styles.title}>
-        Caregiver Dashboard
+        Kindred Years
       </Text>
 
 
       <Text style={styles.subtitle}>
-        Welcome back 👋
+        Elder Care Made Simple
       </Text>
 
 
 
       <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/requests" as any)}
+        style={styles.button}
+        onPress={() => router.push("/sign-in")}
       >
 
-        <Text style={styles.cardText}>
-          📩 Booking Requests
+        <Text style={styles.buttonText}>
+          Sign In
         </Text>
 
       </TouchableOpacity>
-
 
 
 
       <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/patient" as any)}
+        style={styles.button}
+        onPress={() => router.push("/sign-up")}
       >
 
-        <Text style={styles.cardText}>
-          👵 Patient Details
-        </Text>
-
-      </TouchableOpacity>
-
-
-
-
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/update" as any)}
-      >
-
-        <Text style={styles.cardText}>
-          📝 Daily Care Update
-        </Text>
-
-      </TouchableOpacity>
-
-
-
-
-      <TouchableOpacity style={styles.card}>
-
-        <Text style={styles.cardText}>
-          📍 Patient Location
+        <Text style={styles.buttonText}>
+          Create Account
         </Text>
 
       </TouchableOpacity>
@@ -85,41 +57,44 @@ export default function CaregiverDashboard() {
 
 const styles = StyleSheet.create({
 
-
-  container: {
-    flex: 1,
-    padding: 25,
-    paddingTop: 60,
-    backgroundColor: "#ffffff",
-  },
-
-
-  title: {
-    fontSize: 30,
-    fontWeight: "bold",
-  },
+container:{
+ flex:1,
+ justifyContent:"center",
+ alignItems:"center",
+ padding:25,
+ backgroundColor:"#fff",
+},
 
 
-  subtitle: {
-    fontSize: 18,
-    color: "gray",
-    marginBottom: 30,
-    marginTop: 8,
-  },
+title:{
+ fontSize:36,
+ fontWeight:"bold",
+ marginBottom:10,
+},
 
 
-  card: {
-    backgroundColor: "#dbeafe",
-    padding: 22,
-    borderRadius: 15,
-    marginBottom: 18,
-  },
+subtitle:{
+ fontSize:18,
+ color:"gray",
+ marginBottom:40,
+},
 
 
-  cardText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
+button:{
+ backgroundColor:"#4A3FB5",
+ padding:18,
+ borderRadius:15,
+ width:"100%",
+ alignItems:"center",
+ marginBottom:15,
+},
+
+
+buttonText:{
+ color:"white",
+ fontSize:18,
+ fontWeight:"bold",
+},
 
 
 });
