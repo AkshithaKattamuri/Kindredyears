@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -39,14 +40,25 @@ type Medicine = {
   status?: "pending" | "taken" | "skipped";
 };
 
+type AppointmentStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "completed"
+  | "cancelled";
+
 type Appointment = {
   id: string;
-  patientId?: string;
+  elderlyId?: string;
+  doctorId?: string;
   doctorName?: string;
-  specialization?: string;
+  specialization?: string | null;
   appointmentDate?: string;
   appointmentTime?: string;
-  status?: string;
+  appointmentDateTime?: Timestamp;
+  consultationMode?: "video" | "in-person";
+  reason?: string;
+  status?: AppointmentStatus;
 };
 
 type FeatureCardProps = {
@@ -57,171 +69,364 @@ type FeatureCardProps = {
 };
 
 export default function ElderlyDashboard() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [profile, setProfile] =
+    useState<UserProfile | null>(null);
 
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [loadingMedicines, setLoadingMedicines] = useState(true);
-  const [loadingAppointments, setLoadingAppointments] = useState(true);
+  const [medicines, setMedicines] =
+    useState<Medicine[]>([]);
+
+  const [appointments, setAppointments] =
+    useState<Appointment[]>([]);
+
+  const [loadingProfile, setLoadingProfile] =
+    useState(true);
+
+  const [loadingMedicines, setLoadingMedicines] =
+    useState(true);
+
+  const [loadingAppointments, setLoadingAppointments] =
+    useState(true);
+
+  // --------------------------------------------------
+  // LOAD ELDERLY PROFILE
+  // --------------------------------------------------
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setLoadingProfile(false);
-        router.replace("/sign-in");
-        return;
-      }
-
-      try {
-        const userSnapshot = await getDoc(
-          doc(db, "users", user.uid)
-        );
-
-        if (!userSnapshot.exists()) {
-          Alert.alert(
-            "Profile Not Found",
-            "Your Kindred Years profile was not found."
-          );
-
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      async (user) => {
+        if (!user) {
+          setProfile(null);
           setLoadingProfile(false);
+          router.replace("/sign-in");
           return;
         }
 
-        const userData = userSnapshot.data() as UserProfile;
+        try {
+          setLoadingProfile(true);
 
-        if (userData.role !== "elderly") {
-          Alert.alert(
-            "Access Denied",
-            "This dashboard is only available for elderly users."
+          const userSnapshot = await getDoc(
+            doc(db, "users", user.uid)
           );
 
+          if (!userSnapshot.exists()) {
+            Alert.alert(
+              "Profile Not Found",
+              "Your Kindred Years profile was not found."
+            );
+
+            setLoadingProfile(false);
+            return;
+          }
+
+          const userData =
+            userSnapshot.data() as UserProfile;
+
+          if (userData.role !== "elderly") {
+            Alert.alert(
+              "Access Denied",
+              "This dashboard is only available for elderly users."
+            );
+
+            setLoadingProfile(false);
+            return;
+          }
+
+          setProfile(userData);
+        } catch (error) {
+          console.log("Profile error:", error);
+
+          Alert.alert(
+            "Unable to Load Profile",
+            "Please check your internet connection."
+          );
+        } finally {
           setLoadingProfile(false);
-          return;
         }
-
-        setProfile(userData);
-      } catch (error) {
-        console.log("Profile error:", error);
-
-        Alert.alert(
-          "Unable to Load Profile",
-          "Please check your internet connection."
-        );
-      } finally {
-        setLoadingProfile(false);
       }
-    });
+    );
 
     return unsubscribeAuth;
   }, []);
 
+  // --------------------------------------------------
+  // REAL-TIME MEDICINES
+  // --------------------------------------------------
+
   useEffect(() => {
-    const user = auth.currentUser;
+    let unsubscribeMedicines:
+      | (() => void)
+      | undefined;
 
-    if (!user) {
-      setLoadingMedicines(false);
-      return;
-    }
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      (user) => {
+        if (unsubscribeMedicines) {
+          unsubscribeMedicines();
+          unsubscribeMedicines = undefined;
+        }
 
-    const medicinesQuery = query(
-      collection(db, "medicines"),
-      where("userId", "==", user.uid)
-    );
+        if (!user) {
+          setMedicines([]);
+          setLoadingMedicines(false);
+          return;
+        }
 
-    const unsubscribeMedicines = onSnapshot(
-      medicinesQuery,
-      (snapshot) => {
-        const medicineList: Medicine[] = snapshot.docs.map(
-          (medicineDoc) => ({
-            id: medicineDoc.id,
-            ...(medicineDoc.data() as Omit<Medicine, "id">),
-          })
+        setLoadingMedicines(true);
+
+        const medicinesQuery = query(
+          collection(db, "medicines"),
+          where("userId", "==", user.uid)
         );
 
-        setMedicines(medicineList);
-        setLoadingMedicines(false);
-      },
-      (error) => {
-        console.log("Medicines error:", error);
-        setLoadingMedicines(false);
+        unsubscribeMedicines = onSnapshot(
+          medicinesQuery,
+          (snapshot) => {
+            const medicineList: Medicine[] =
+              snapshot.docs.map((medicineDoc) => {
+                const data = medicineDoc.data();
+
+                return {
+                  id: medicineDoc.id,
+                  userId: data.userId,
+                  name: data.name,
+                  dosage: data.dosage,
+                  time: data.time,
+                  status: data.status || "pending",
+                };
+              });
+
+            setMedicines(medicineList);
+            setLoadingMedicines(false);
+          },
+          (error) => {
+            console.log(
+              "Medicines listener error:",
+              error
+            );
+
+            setLoadingMedicines(false);
+          }
+        );
       }
     );
 
-    return unsubscribeMedicines;
+    return () => {
+      unsubscribeAuth();
+
+      if (unsubscribeMedicines) {
+        unsubscribeMedicines();
+      }
+    };
   }, []);
 
+  // --------------------------------------------------
+  // REAL-TIME DOCTOR APPOINTMENTS
+  // IMPORTANT:
+  // Collection = doctorAppointments
+  // Field = elderlyId
+  // --------------------------------------------------
+
   useEffect(() => {
-    const user = auth.currentUser;
+    let unsubscribeAppointments:
+      | (() => void)
+      | undefined;
 
-    if (!user) {
-      setLoadingAppointments(false);
-      return;
-    }
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      (user) => {
+        if (unsubscribeAppointments) {
+          unsubscribeAppointments();
+          unsubscribeAppointments = undefined;
+        }
 
-    const appointmentsQuery = query(
-      collection(db, "appointments"),
-      where("patientId", "==", user.uid)
-    );
+        if (!user) {
+          setAppointments([]);
+          setLoadingAppointments(false);
+          return;
+        }
 
-    const unsubscribeAppointments = onSnapshot(
-      appointmentsQuery,
-      (snapshot) => {
-        const appointmentList: Appointment[] = snapshot.docs.map(
-          (appointmentDoc) => ({
-            id: appointmentDoc.id,
-            ...(appointmentDoc.data() as Omit<Appointment, "id">),
-          })
+        setLoadingAppointments(true);
+
+        const appointmentsQuery = query(
+          collection(db, "doctorAppointments"),
+          where("elderlyId", "==", user.uid)
         );
 
-        setAppointments(appointmentList);
-        setLoadingAppointments(false);
-      },
-      (error) => {
-        console.log("Appointments error:", error);
-        setLoadingAppointments(false);
+        unsubscribeAppointments = onSnapshot(
+          appointmentsQuery,
+          (snapshot) => {
+            const appointmentList: Appointment[] =
+              snapshot.docs.map(
+                (appointmentDoc) => {
+                  const data =
+                    appointmentDoc.data();
+
+                  return {
+                    id: appointmentDoc.id,
+
+                    elderlyId:
+                      data.elderlyId || "",
+
+                    doctorId:
+                      data.doctorId || "",
+
+                    doctorName:
+                      data.doctorName || "Doctor",
+
+                    specialization:
+                      data.specialization || null,
+
+                    appointmentDate:
+                      data.appointmentDate || "",
+
+                    appointmentTime:
+                      data.appointmentTime || "",
+
+                    appointmentDateTime:
+                      data.appointmentDateTime,
+
+                    consultationMode:
+                      data.consultationMode ||
+                      "video",
+
+                    reason:
+                      data.reason || "",
+
+                    status:
+                      data.status || "pending",
+                  };
+                }
+              );
+
+            // Sort using real Firestore Timestamp
+            appointmentList.sort((a, b) => {
+              const aTime =
+                a.appointmentDateTime?.toMillis?.() ??
+                Number.MAX_SAFE_INTEGER;
+
+              const bTime =
+                b.appointmentDateTime?.toMillis?.() ??
+                Number.MAX_SAFE_INTEGER;
+
+              return aTime - bTime;
+            });
+
+            setAppointments(appointmentList);
+            setLoadingAppointments(false);
+          },
+          (error) => {
+            console.log(
+              "Doctor appointments listener error:",
+              error
+            );
+
+            setLoadingAppointments(false);
+
+            Alert.alert(
+              "Unable to Load Appointments",
+              "Could not load your doctor appointments."
+            );
+          }
+        );
       }
     );
 
-    return unsubscribeAppointments;
+    return () => {
+      unsubscribeAuth();
+
+      if (unsubscribeAppointments) {
+        unsubscribeAppointments();
+      }
+    };
   }, []);
+
+  // --------------------------------------------------
+  // MEDICINE CALCULATIONS
+  // --------------------------------------------------
 
   const pendingMedicines = useMemo(() => {
     return medicines.filter(
-      (medicine) => medicine.status === "pending"
+      (medicine) =>
+        medicine.status === "pending"
     );
   }, [medicines]);
 
   const takenMedicines = useMemo(() => {
     return medicines.filter(
-      (medicine) => medicine.status === "taken"
+      (medicine) =>
+        medicine.status === "taken"
     );
   }, [medicines]);
+
+  // --------------------------------------------------
+  // APPOINTMENT CALCULATIONS
+  // --------------------------------------------------
 
   const activeAppointments = useMemo(() => {
     return appointments.filter(
       (appointment) =>
-        appointment.status !== "cancelled" &&
-        appointment.status !== "completed"
+        appointment.status === "pending" ||
+        appointment.status === "accepted"
     );
   }, [appointments]);
 
-  const nextMedicine = pendingMedicines[0] ?? null;
-  const nextAppointment = activeAppointments[0] ?? null;
+  const rejectedAppointments = useMemo(() => {
+    return appointments.filter(
+      (appointment) =>
+        appointment.status === "rejected"
+    );
+  }, [appointments]);
 
-  async function handleMarkTaken(medicineId: string) {
+  const nextMedicine =
+    pendingMedicines[0] ?? null;
+
+  const nextAppointment =
+    activeAppointments[0] ?? null;
+
+  // Latest request includes rejected appointments too.
+  // Useful so the elderly user can see doctor decision.
+  const latestAppointmentRequest = useMemo(() => {
+    if (appointments.length === 0) {
+      return null;
+    }
+
+    return [...appointments].sort((a, b) => {
+      const aTime =
+        a.appointmentDateTime?.toMillis?.() ?? 0;
+
+      const bTime =
+        b.appointmentDateTime?.toMillis?.() ?? 0;
+
+      return bTime - aTime;
+    })[0];
+  }, [appointments]);
+
+  // --------------------------------------------------
+  // MEDICINE ACTIONS
+  // --------------------------------------------------
+
+  async function handleMarkTaken(
+    medicineId: string
+  ) {
     try {
-      await updateDoc(doc(db, "medicines", medicineId), {
-        status: "taken",
-        takenAt: serverTimestamp(),
-      });
+      await updateDoc(
+        doc(db, "medicines", medicineId),
+        {
+          status: "taken",
+          takenAt: serverTimestamp(),
+        }
+      );
 
       Alert.alert(
         "Medicine Updated",
         "Medicine marked as taken."
       );
     } catch (error) {
-      console.log("Update medicine error:", error);
+      console.log(
+        "Update medicine error:",
+        error
+      );
 
       Alert.alert(
         "Update Failed",
@@ -230,19 +435,27 @@ export default function ElderlyDashboard() {
     }
   }
 
-  async function handleMarkSkipped(medicineId: string) {
+  async function handleMarkSkipped(
+    medicineId: string
+  ) {
     try {
-      await updateDoc(doc(db, "medicines", medicineId), {
-        status: "skipped",
-        skippedAt: serverTimestamp(),
-      });
+      await updateDoc(
+        doc(db, "medicines", medicineId),
+        {
+          status: "skipped",
+          skippedAt: serverTimestamp(),
+        }
+      );
 
       Alert.alert(
         "Medicine Updated",
         "Medicine marked as skipped."
       );
     } catch (error) {
-      console.log("Skip medicine error:", error);
+      console.log(
+        "Skip medicine error:",
+        error
+      );
 
       Alert.alert(
         "Update Failed",
@@ -251,9 +464,14 @@ export default function ElderlyDashboard() {
     }
   }
 
+  // --------------------------------------------------
+  // LOGOUT
+  // --------------------------------------------------
+
   async function handleLogout() {
     try {
       await signOut(auth);
+
       router.replace("/sign-in");
     } catch (error) {
       console.log("Logout error:", error);
@@ -264,6 +482,10 @@ export default function ElderlyDashboard() {
       );
     }
   }
+
+  // --------------------------------------------------
+  // LOADING SCREEN
+  // --------------------------------------------------
 
   if (loadingProfile) {
     return (
@@ -280,14 +502,22 @@ export default function ElderlyDashboard() {
     );
   }
 
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={
+          styles.scrollContent
+        }
         showsVerticalScrollIndicator={false}
       >
+        {/* HEADER */}
+
         <View style={styles.header}>
           <View style={styles.headerInfo}>
             <Text style={styles.greeting}>
@@ -295,7 +525,8 @@ export default function ElderlyDashboard() {
             </Text>
 
             <Text style={styles.userName}>
-              {profile?.fullName || "Kindred Years Member"}
+              {profile?.fullName ||
+                "Kindred Years Member"}
             </Text>
           </View>
 
@@ -307,18 +538,23 @@ export default function ElderlyDashboard() {
           >
             <Text style={styles.profileText}>
               {profile?.fullName
-                ? profile.fullName.charAt(0).toUpperCase()
+                ? profile.fullName
+                    .charAt(0)
+                    .toUpperCase()
                 : "P"}
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* TODAY CARE STATUS */}
 
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>
             Today's Care Status
           </Text>
 
-          {loadingMedicines || loadingAppointments ? (
+          {loadingMedicines ||
+          loadingAppointments ? (
             <ActivityIndicator
               color="#4A3FB5"
               style={styles.statusLoader}
@@ -330,37 +566,49 @@ export default function ElderlyDashboard() {
                   {medicines.length}
                 </Text>
 
-                <Text style={styles.statusItemText}>
+                <Text
+                  style={styles.statusItemText}
+                >
                   Medicines
                 </Text>
               </View>
 
-              <View style={styles.verticalDivider} />
+              <View
+                style={styles.verticalDivider}
+              />
 
               <View style={styles.statusItem}>
                 <Text style={styles.statusNumber}>
                   {takenMedicines.length}
                 </Text>
 
-                <Text style={styles.statusItemText}>
+                <Text
+                  style={styles.statusItemText}
+                >
                   Taken
                 </Text>
               </View>
 
-              <View style={styles.verticalDivider} />
+              <View
+                style={styles.verticalDivider}
+              />
 
               <View style={styles.statusItem}>
                 <Text style={styles.statusNumber}>
                   {activeAppointments.length}
                 </Text>
 
-                <Text style={styles.statusItemText}>
+                <Text
+                  style={styles.statusItemText}
+                >
                   Appointments
                 </Text>
               </View>
             </View>
           )}
         </View>
+
+        {/* SOS */}
 
         <TouchableOpacity
           style={styles.sosButton}
@@ -373,7 +621,9 @@ export default function ElderlyDashboard() {
           activeOpacity={0.85}
         >
           <View style={styles.sosIconCircle}>
-            <Text style={styles.sosIcon}>!</Text>
+            <Text style={styles.sosIcon}>
+              !
+            </Text>
           </View>
 
           <View style={styles.sosTextContainer}>
@@ -391,6 +641,8 @@ export default function ElderlyDashboard() {
           </Text>
         </TouchableOpacity>
 
+        {/* MY CARE */}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
             My Care
@@ -407,7 +659,9 @@ export default function ElderlyDashboard() {
             title="Medicines"
             subtitle={`${pendingMedicines.length} pending`}
             onPress={() =>
-              router.push("/elderly/medicines")
+              router.push(
+                "/elderly/medicines"
+              )
             }
           />
 
@@ -416,25 +670,20 @@ export default function ElderlyDashboard() {
             title="Caregiver"
             subtitle="Find and book care"
             onPress={() =>
-              router.push("/elderly/caregiver-booking")
+              router.push(
+                "/elderly/caregiver-booking"
+              )
             }
           />
 
           <FeatureCard
             icon="D"
             title="Doctor"
-            subtitle={`${activeAppointments.length} appointments`}
+            subtitle={`${activeAppointments.length} active`}
             onPress={() =>
-              router.push("/elderly/doctor-appointments")
-            }
-          />
-
-          <FeatureCard
-            icon="V"
-            title="Video Call"
-            subtitle="Talk to a doctor"
-            onPress={() =>
-              router.push("/elderly/video-call")
+              router.push(
+                "/elderly/doctor-appointments"
+              )
             }
           />
 
@@ -443,7 +692,9 @@ export default function ElderlyDashboard() {
             title="Reports"
             subtitle="Medical documents"
             onPress={() =>
-              router.push("/elderly/health-updates")
+              router.push(
+                "/elderly/health-updates"
+              )
             }
           />
 
@@ -452,10 +703,14 @@ export default function ElderlyDashboard() {
             title="Health"
             subtitle="Daily updates"
             onPress={() =>
-              router.push("/elderly/health-updates")
+              router.push(
+                "/elderly/health-updates"
+              )
             }
           />
         </View>
+
+        {/* NEXT MEDICINE */}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
@@ -465,22 +720,33 @@ export default function ElderlyDashboard() {
 
         {loadingMedicines ? (
           <View style={styles.emptyCard}>
-            <ActivityIndicator color="#4A3FB5" />
+            <ActivityIndicator
+              color="#4A3FB5"
+            />
           </View>
         ) : nextMedicine ? (
           <View style={styles.reminderCard}>
-            <View style={styles.reminderTimeBox}>
-              <Text style={styles.reminderTime}>
+            <View
+              style={styles.reminderTimeBox}
+            >
+              <Text
+                style={styles.reminderTime}
+              >
                 {nextMedicine.time || "--:--"}
               </Text>
             </View>
 
             <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>
-                {nextMedicine.name || "Medicine"}
+              <Text
+                style={styles.reminderTitle}
+              >
+                {nextMedicine.name ||
+                  "Medicine"}
               </Text>
 
-              <Text style={styles.reminderSubtitle}>
+              <Text
+                style={styles.reminderSubtitle}
+              >
                 {nextMedicine.dosage ||
                   "No dosage information"}
               </Text>
@@ -490,10 +756,14 @@ export default function ElderlyDashboard() {
               <TouchableOpacity
                 style={styles.takenButton}
                 onPress={() =>
-                  handleMarkTaken(nextMedicine.id)
+                  handleMarkTaken(
+                    nextMedicine.id
+                  )
                 }
               >
-                <Text style={styles.takenButtonText}>
+                <Text
+                  style={styles.takenButtonText}
+                >
                   Taken
                 </Text>
               </TouchableOpacity>
@@ -501,10 +771,14 @@ export default function ElderlyDashboard() {
               <TouchableOpacity
                 style={styles.skipButton}
                 onPress={() =>
-                  handleMarkSkipped(nextMedicine.id)
+                  handleMarkSkipped(
+                    nextMedicine.id
+                  )
                 }
               >
-                <Text style={styles.skipButtonText}>
+                <Text
+                  style={styles.skipButtonText}
+                >
                   Skip
                 </Text>
               </TouchableOpacity>
@@ -514,54 +788,90 @@ export default function ElderlyDashboard() {
           <TouchableOpacity
             style={styles.emptyCard}
             onPress={() =>
-              router.push("/elderly/medicines")
+              router.push(
+                "/elderly/medicines"
+              )
             }
           >
             <Text style={styles.emptyTitle}>
               No pending medicines
             </Text>
 
-            <Text style={styles.emptySubtitle}>
+            <Text
+              style={styles.emptySubtitle}
+            >
               Tap here to add a medicine reminder.
             </Text>
           </TouchableOpacity>
         )}
 
+        {/* UPCOMING APPOINTMENT */}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            Next Appointment
+            Upcoming Appointment
+          </Text>
+
+          <Text style={styles.sectionSubtitle}>
+            Your next active doctor request
           </Text>
         </View>
 
         {loadingAppointments ? (
           <View style={styles.emptyCard}>
-            <ActivityIndicator color="#4A3FB5" />
+            <ActivityIndicator
+              color="#4A3FB5"
+            />
           </View>
         ) : nextAppointment ? (
           <View style={styles.appointmentCard}>
             <View style={styles.doctorAvatar}>
-              <Text style={styles.doctorAvatarText}>
+              <Text
+                style={styles.doctorAvatarText}
+              >
                 DR
               </Text>
             </View>
 
             <View style={styles.appointmentInfo}>
               <Text style={styles.doctorName}>
+                Dr.{" "}
                 {nextAppointment.doctorName ||
                   "Doctor"}
               </Text>
 
-              <Text style={styles.specialization}>
+              <Text
+                style={styles.specialization}
+              >
                 {nextAppointment.specialization ||
-                  "Specialization unavailable"}
+                  "General Physician"}
               </Text>
 
-              <Text style={styles.appointmentTime}>
+              <Text
+                style={styles.appointmentTime}
+              >
                 {nextAppointment.appointmentDate ||
                   "Date pending"}
-                {"  "}
-                {nextAppointment.appointmentTime || ""}
+                {" • "}
+                {nextAppointment.appointmentTime ||
+                  "Time pending"}
               </Text>
+
+              <Text
+                style={styles.appointmentMode}
+              >
+                {nextAppointment.consultationMode ===
+                "video"
+                  ? "Video Call"
+                  : "In Person"}
+              </Text>
+
+              <AppointmentStatusBadge
+                status={
+                  nextAppointment.status ||
+                  "pending"
+                }
+              />
             </View>
 
             <TouchableOpacity
@@ -572,7 +882,9 @@ export default function ElderlyDashboard() {
                 )
               }
             >
-              <Text style={styles.viewButtonText}>
+              <Text
+                style={styles.viewButtonText}
+              >
                 View
               </Text>
             </TouchableOpacity>
@@ -590,17 +902,128 @@ export default function ElderlyDashboard() {
               No upcoming appointments
             </Text>
 
-            <Text style={styles.emptySubtitle}>
+            <Text
+              style={styles.emptySubtitle}
+            >
               Tap here to book a doctor appointment.
             </Text>
           </TouchableOpacity>
         )}
 
+        {/* LATEST APPOINTMENT STATUS */}
+
+        {latestAppointmentRequest ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Latest Appointment Status
+              </Text>
+
+              <Text
+                style={styles.sectionSubtitle}
+              >
+                Track doctor approval updates
+              </Text>
+            </View>
+
+            <View
+              style={styles.latestStatusCard}
+            >
+              <View
+                style={styles.latestStatusTop}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={styles.latestDoctorName}
+                  >
+                    Dr.{" "}
+                    {latestAppointmentRequest.doctorName ||
+                      "Doctor"}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.latestAppointmentDate
+                    }
+                  >
+                    {latestAppointmentRequest.appointmentDate ||
+                      "Date pending"}
+                    {" • "}
+                    {latestAppointmentRequest.appointmentTime ||
+                      "Time pending"}
+                  </Text>
+                </View>
+
+                <AppointmentStatusBadge
+                  status={
+                    latestAppointmentRequest.status ||
+                    "pending"
+                  }
+                />
+              </View>
+
+              {latestAppointmentRequest.reason ? (
+                <Text
+                  style={styles.latestReason}
+                >
+                  Reason:{" "}
+                  {
+                    latestAppointmentRequest.reason
+                  }
+                </Text>
+              ) : null}
+
+              {latestAppointmentRequest.status ===
+              "pending" ? (
+                <Text
+                  style={styles.pendingMessage}
+                >
+                  Waiting for doctor approval.
+                </Text>
+              ) : null}
+
+              {latestAppointmentRequest.status ===
+              "accepted" ? (
+                <Text
+                  style={styles.acceptedMessage}
+                >
+                  Your doctor has accepted this
+                  appointment.
+                </Text>
+              ) : null}
+
+              {latestAppointmentRequest.status ===
+              "rejected" ? (
+                <Text
+                  style={styles.rejectedMessage}
+                >
+                  Your doctor has rejected this
+                  appointment request.
+                </Text>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* APPOINTMENT SUMMARY */}
+
+        {!loadingAppointments &&
+        rejectedAppointments.length > 0 ? (
+          <Text style={styles.summaryText}>
+            Rejected requests:{" "}
+            {rejectedAppointments.length}
+          </Text>
+        ) : null}
+
+        {/* LOGOUT */}
+
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={handleLogout}
         >
-          <Text style={styles.logoutButtonText}>
+          <Text
+            style={styles.logoutButtonText}
+          >
             Sign Out
           </Text>
         </TouchableOpacity>
@@ -610,6 +1033,60 @@ export default function ElderlyDashboard() {
     </SafeAreaView>
   );
 }
+
+// --------------------------------------------------
+// APPOINTMENT STATUS BADGE
+// --------------------------------------------------
+
+function AppointmentStatusBadge({
+  status,
+}: {
+  status: AppointmentStatus;
+}) {
+  let label = "Pending";
+  let badgeStyle = styles.pendingBadge;
+  let textStyle = styles.pendingBadgeText;
+
+  if (status === "accepted") {
+    label = "Accepted";
+    badgeStyle = styles.acceptedBadge;
+    textStyle = styles.acceptedBadgeText;
+  } else if (status === "rejected") {
+    label = "Rejected";
+    badgeStyle = styles.rejectedBadge;
+    textStyle = styles.rejectedBadgeText;
+  } else if (status === "completed") {
+    label = "Completed";
+    badgeStyle = styles.completedBadge;
+    textStyle = styles.completedBadgeText;
+  } else if (status === "cancelled") {
+    label = "Cancelled";
+    badgeStyle = styles.cancelledBadge;
+    textStyle = styles.cancelledBadgeText;
+  }
+
+  return (
+    <View
+      style={[
+        styles.appointmentStatusBadge,
+        badgeStyle,
+      ]}
+    >
+      <Text
+        style={[
+          styles.appointmentStatusText,
+          textStyle,
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// --------------------------------------------------
+// FEATURE CARD
+// --------------------------------------------------
 
 function FeatureCard({
   icon,
@@ -624,7 +1101,9 @@ function FeatureCard({
       activeOpacity={0.8}
     >
       <View style={styles.featureIcon}>
-        <Text style={styles.featureIconText}>
+        <Text
+          style={styles.featureIconText}
+        >
           {icon}
         </Text>
       </View>
@@ -639,6 +1118,10 @@ function FeatureCard({
     </TouchableOpacity>
   );
 }
+
+// --------------------------------------------------
+// STYLES
+// --------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
@@ -985,6 +1468,13 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  appointmentMode: {
+    fontSize: 12,
+    color: "#666677",
+    marginTop: 5,
+    fontWeight: "600",
+  },
+
   viewButton: {
     borderWidth: 1,
     borderColor: "#4A3FB5",
@@ -997,6 +1487,119 @@ const styles = StyleSheet.create({
     color: "#4A3FB5",
     fontSize: 12,
     fontWeight: "700",
+  },
+
+  appointmentStatusBadge: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+
+  appointmentStatusText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+
+  pendingBadge: {
+    backgroundColor: "#FFF3D6",
+  },
+
+  pendingBadgeText: {
+    color: "#B7791F",
+  },
+
+  acceptedBadge: {
+    backgroundColor: "#E8F7EE",
+  },
+
+  acceptedBadgeText: {
+    color: "#278A50",
+  },
+
+  rejectedBadge: {
+    backgroundColor: "#FDECEC",
+  },
+
+  rejectedBadgeText: {
+    color: "#C84343",
+  },
+
+  completedBadge: {
+    backgroundColor: "#EEEAFE",
+  },
+
+  completedBadgeText: {
+    color: "#4A3FB5",
+  },
+
+  cancelledBadge: {
+    backgroundColor: "#EEEEF2",
+  },
+
+  cancelledBadgeText: {
+    color: "#666677",
+  },
+
+  latestStatusCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 2,
+  },
+
+  latestStatusTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  latestDoctorName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1E1E2F",
+  },
+
+  latestAppointmentDate: {
+    fontSize: 12,
+    color: "#77778A",
+    marginTop: 5,
+  },
+
+  latestReason: {
+    fontSize: 13,
+    color: "#55556A",
+    lineHeight: 19,
+    marginTop: 14,
+  },
+
+  pendingMessage: {
+    fontSize: 12,
+    color: "#B7791F",
+    fontWeight: "700",
+    marginTop: 12,
+  },
+
+  acceptedMessage: {
+    fontSize: 12,
+    color: "#278A50",
+    fontWeight: "700",
+    marginTop: 12,
+  },
+
+  rejectedMessage: {
+    fontSize: 12,
+    color: "#C84343",
+    fontWeight: "700",
+    marginTop: 12,
+  },
+
+  summaryText: {
+    fontSize: 12,
+    color: "#77778A",
+    marginBottom: 18,
+    textAlign: "center",
   },
 
   emptyCard: {

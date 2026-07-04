@@ -1,8 +1,13 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { auth, db } from "../config/firebase";
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,121 +21,267 @@ import {
   View,
 } from "react-native";
 
-type UserRole = "elderly" | "family" | "caregiver" | "doctor";
+type UserRole =
+  | "elderly"
+  | "family"
+  | "caregiver"
+  | "doctor";
+
+/*
+  Generates a connection code for elderly users.
+
+  Example:
+  KY-A7P9X2
+*/
+function generateLinkCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let code = "KY-";
+
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(
+      Math.floor(Math.random() * chars.length)
+    );
+  }
+
+  return code;
+}
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+
+  const [selectedRole, setSelectedRole] =
+    useState<UserRole | null>(null);
+
+  const [creatingAccount, setCreatingAccount] =
+    useState(false);
 
   async function handleCreateAccount() {
-  
-  if (!fullName.trim() || !email.trim() || !phone.trim() || !password) {
-    Alert.alert("Missing Details", "Please fill in all fields.");
-    return;
-  }
-
-  if (!selectedRole) {
-    Alert.alert("Select Role", "Please select your role.");
-    return;
-  }
-
-  if (password.length < 6) {
-    Alert.alert(
-      "Weak Password",
-      "Password must contain at least 6 characters."
-    );
-    return;
-  }
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
-
-    const user = userCredential.user;
-
-    const verificationStatus =
-      selectedRole === "caregiver" || selectedRole === "doctor"
-        ? "pending"
-        : "approved";
-
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      role: selectedRole,
-      verificationStatus,
-      createdAt: serverTimestamp(),
-    });
-
-    Alert.alert(
-      "Account Created",
-      selectedRole === "caregiver" || selectedRole === "doctor"
-        ? "Your account is waiting for admin verification."
-        : "Your account was created successfully."
-    );
-
-    router.replace("/sign-in");
-  } catch (error: any) {
-    console.log("Signup error:", error);
-
-    if (error.code === "auth/email-already-in-use") {
+    if (
+      !fullName.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password
+    ) {
       Alert.alert(
-        "Account Exists",
-        "An account already exists with this email."
+        "Missing Details",
+        "Please fill in all fields."
       );
-    } else if (error.code === "auth/invalid-email") {
+      return;
+    }
+
+    if (!selectedRole) {
       Alert.alert(
-        "Invalid Email",
-        "Please enter a valid email address."
+        "Select Role",
+        "Please select your role."
       );
-    } else if (error.code === "auth/weak-password") {
+      return;
+    }
+
+    if (password.length < 6) {
       Alert.alert(
         "Weak Password",
-        "Please choose a stronger password."
+        "Password must contain at least 6 characters."
       );
-    } else {
-      Alert.alert(
-        "Signup Failed",
-        error.message || "Something went wrong."
+      return;
+    }
+
+    try {
+      setCreatingAccount(true);
+
+      /*
+        STEP 1:
+        Create Firebase Authentication account
+      */
+
+      const userCredential =
+        await createUserWithEmailAndPassword(
+          auth,
+          email.trim().toLowerCase(),
+          password
+        );
+
+      const user = userCredential.user;
+
+      /*
+        STEP 2:
+        Caregiver and Doctor need admin approval
+      */
+
+      const verificationStatus =
+        selectedRole === "caregiver" ||
+        selectedRole === "doctor"
+          ? "pending"
+          : "approved";
+
+      /*
+        STEP 3:
+        Only elderly users receive a connection code
+      */
+
+      const linkCode =
+        selectedRole === "elderly"
+          ? generateLinkCode()
+          : null;
+
+      /*
+        STEP 4:
+        Prepare Firestore user data
+      */
+
+      const userData: Record<string, any> = {
+        uid: user.uid,
+
+        fullName: fullName.trim(),
+
+        email: email.trim().toLowerCase(),
+
+        phone: phone.trim(),
+
+        role: selectedRole,
+
+        verificationStatus,
+
+        createdAt: serverTimestamp(),
+      };
+
+      /*
+        Add linkCode ONLY for elderly users
+      */
+
+      if (selectedRole === "elderly") {
+        userData.linkCode = linkCode;
+      }
+
+      /*
+        STEP 5:
+        Save profile in Firestore
+      */
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        userData
       );
+
+      /*
+        STEP 6:
+        Show correct success message
+      */
+
+      if (selectedRole === "elderly") {
+        Alert.alert(
+          "Account Created",
+          `Your account was created successfully.\n\nYour Family Connection Code:\n${linkCode}\n\nShare this code only with trusted family members.`
+        );
+      } else if (
+        selectedRole === "caregiver" ||
+        selectedRole === "doctor"
+      ) {
+        Alert.alert(
+          "Account Created",
+          "Your account is waiting for admin verification."
+        );
+      } else {
+        Alert.alert(
+          "Account Created",
+          "Your account was created successfully."
+        );
+      }
+
+      /*
+        STEP 7:
+        Go to sign-in page
+      */
+
+      router.replace("/sign-in");
+    } catch (error: any) {
+      console.log("Signup error:", error);
+
+      if (
+        error.code === "auth/email-already-in-use"
+      ) {
+        Alert.alert(
+          "Account Exists",
+          "An account already exists with this email."
+        );
+      } else if (
+        error.code === "auth/invalid-email"
+      ) {
+        Alert.alert(
+          "Invalid Email",
+          "Please enter a valid email address."
+        );
+      } else if (
+        error.code === "auth/weak-password"
+      ) {
+        Alert.alert(
+          "Weak Password",
+          "Please choose a stronger password."
+        );
+      } else if (
+        error.code ===
+        "auth/network-request-failed"
+      ) {
+        Alert.alert(
+          "Network Error",
+          "Please check your internet connection."
+        );
+      } else {
+        Alert.alert(
+          "Signup Failed",
+          error.message ||
+            "Something went wrong."
+        );
+      }
+    } finally {
+      setCreatingAccount(false);
     }
   }
-}
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={
+          Platform.OS === "ios"
+            ? "padding"
+            : undefined
+        }
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={
+            styles.scrollContent
+          }
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            disabled={creatingAccount}
           >
-            <Text style={styles.backText}>{"< Back"}</Text>
+            <Text style={styles.backText}>
+              {"< Back"}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>
+              Create Account
+            </Text>
 
             <Text style={styles.subtitle}>
-              Join Kindred Years and stay connected with care
+              Join Kindred Years and stay connected
+              with care
             </Text>
           </View>
 
-          <Text style={styles.label}>Full Name</Text>
+          <Text style={styles.label}>
+            Full Name
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -138,9 +289,12 @@ export default function SignUpScreen() {
             placeholderTextColor="#9999A8"
             value={fullName}
             onChangeText={setFullName}
+            editable={!creatingAccount}
           />
 
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={styles.label}>
+            Email Address
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -151,9 +305,12 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!creatingAccount}
           />
 
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>
+            Phone Number
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -162,9 +319,12 @@ export default function SignUpScreen() {
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
+            editable={!creatingAccount}
           />
 
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>
+            Password
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -173,9 +333,12 @@ export default function SignUpScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            editable={!creatingAccount}
           />
 
-          <Text style={styles.roleTitle}>I am a</Text>
+          <Text style={styles.roleTitle}>
+            I am a
+          </Text>
 
           <View style={styles.roleGrid}>
             <RoleButton
@@ -183,6 +346,7 @@ export default function SignUpScreen() {
               role="elderly"
               selectedRole={selectedRole}
               onSelect={setSelectedRole}
+              disabled={creatingAccount}
             />
 
             <RoleButton
@@ -190,6 +354,7 @@ export default function SignUpScreen() {
               role="family"
               selectedRole={selectedRole}
               onSelect={setSelectedRole}
+              disabled={creatingAccount}
             />
 
             <RoleButton
@@ -197,6 +362,7 @@ export default function SignUpScreen() {
               role="caregiver"
               selectedRole={selectedRole}
               onSelect={setSelectedRole}
+              disabled={creatingAccount}
             />
 
             <RoleButton
@@ -204,15 +370,23 @@ export default function SignUpScreen() {
               role="doctor"
               selectedRole={selectedRole}
               onSelect={setSelectedRole}
+              disabled={creatingAccount}
             />
           </View>
 
           <TouchableOpacity
-            style={styles.createButton}
+            style={[
+              styles.createButton,
+              creatingAccount &&
+                styles.disabledButton,
+            ]}
             onPress={handleCreateAccount}
+            disabled={creatingAccount}
           >
             <Text style={styles.createButtonText}>
-              Create Account
+              {creatingAccount
+                ? "Creating Account..."
+                : "Create Account"}
             </Text>
           </TouchableOpacity>
 
@@ -222,9 +396,14 @@ export default function SignUpScreen() {
             </Text>
 
             <TouchableOpacity
-              onPress={() => router.replace("/sign-in")}
+              onPress={() =>
+                router.replace("/sign-in")
+              }
+              disabled={creatingAccount}
             >
-              <Text style={styles.signInText}>Sign In</Text>
+              <Text style={styles.signInText}>
+                Sign In
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -238,6 +417,7 @@ type RoleButtonProps = {
   role: UserRole;
   selectedRole: UserRole | null;
   onSelect: (role: UserRole) => void;
+  disabled?: boolean;
 };
 
 function RoleButton({
@@ -245,21 +425,28 @@ function RoleButton({
   role,
   selectedRole,
   onSelect,
+  disabled = false,
 }: RoleButtonProps) {
-  const isSelected = selectedRole === role;
+  const isSelected =
+    selectedRole === role;
 
   return (
     <TouchableOpacity
       style={[
         styles.roleButton,
-        isSelected && styles.selectedRoleButton,
+        isSelected &&
+          styles.selectedRoleButton,
+        disabled &&
+          styles.disabledRoleButton,
       ]}
       onPress={() => onSelect(role)}
+      disabled={disabled}
     >
       <Text
         style={[
           styles.roleButtonText,
-          isSelected && styles.selectedRoleText,
+          isSelected &&
+            styles.selectedRoleText,
         ]}
       >
         {label}
@@ -377,6 +564,10 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
+  disabledRoleButton: {
+    opacity: 0.6,
+  },
+
   createButton: {
     width: "100%",
     height: 56,
@@ -384,6 +575,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  disabledButton: {
+    opacity: 0.6,
   },
 
   createButtonText: {

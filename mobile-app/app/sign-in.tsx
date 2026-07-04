@@ -1,8 +1,18 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+
+import {
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+
+import {
+  doc,
+  getDoc,
+} from "firebase/firestore";
+
 import { auth, db } from "../config/firebase";
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -19,108 +29,188 @@ import {
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
 
   async function handleSignIn() {
-  if (!email.trim() || !password) {
-    Alert.alert(
-      "Missing Details",
-      "Please enter your email and password."
-    );
-    return;
-  }
-
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
-
-    const user = userCredential.user;
-
-    const userDoc = await getDoc(
-      doc(db, "users", user.uid)
-    );
-
-    if (!userDoc.exists()) {
+    if (!email.trim() || !password) {
       Alert.alert(
-        "Profile Not Found",
-        "Your Kindred Years profile was not found."
+        "Missing Details",
+        "Please enter your email and password."
       );
       return;
     }
 
-    const userData = userDoc.data();
+    try {
+      setSigningIn(true);
 
-    const role = userData.role;
-    const verificationStatus = userData.verificationStatus;
+      // Step 1: Sign in using Firebase Authentication
+      const userCredential =
+        await signInWithEmailAndPassword(
+          auth,
+          email.trim().toLowerCase(),
+          password
+        );
 
-    if (
-      (role === "caregiver" || role === "doctor") &&
-      verificationStatus !== "approved"
-    ) {
-      Alert.alert(
-        "Verification Pending",
-        "Your account is waiting for admin approval."
+      const user = userCredential.user;
+
+      // Step 2: Read user profile from Firestore
+      const userDoc = await getDoc(
+        doc(db, "users", user.uid)
       );
-      return;
-    }
 
-    if (role === "elderly") {
-      router.replace("/elderly/elderly-dashboard");
-    } 
-    else if (role === "caregiver") {
-      router.replace("/caregiver/dashboard" as any);
-    }else {
+      if (!userDoc.exists()) {
+        await signOut(auth);
+
+        Alert.alert(
+          "Profile Not Found",
+          "Your Kindred Years profile was not found."
+        );
+
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      const role = userData.role;
+      const verificationStatus =
+        userData.verificationStatus;
+
+      // Step 3: Block unapproved caregiver/doctor accounts
+      if (
+        (role === "caregiver" || role === "doctor") &&
+        verificationStatus !== "approved"
+      ) {
+        await signOut(auth);
+
+        Alert.alert(
+          "Verification Pending",
+          "Your account is waiting for admin approval."
+        );
+
+        return;
+      }
+
+      // Step 4: Route according to role
+
+      if (role === "elderly") {
+        router.replace(
+          "/elderly/elderly-dashboard"
+        );
+        return;
+      }
+
+      if (role === "caregiver") {
+        router.replace(
+          "/caregiver/dashboard" as any
+        );
+        return;
+      }
+
+      // Family dashboard is being added by teammate
+      if (role === "family") {
+        await signOut(auth);
+
+        Alert.alert(
+          "Dashboard Not Available",
+          "The Family dashboard is being added."
+        );
+
+        return;
+      }
+
+      // Doctor dashboard is being added by teammate
+      if (role === "doctor") {
+        await signOut(auth);
+
+        Alert.alert(
+          "Dashboard Not Available",
+          "The Doctor dashboard is being added."
+        );
+
+        return;
+      }
+
+      // Unknown role
+      await signOut(auth);
+
       Alert.alert(
         "Invalid Role",
         "Your account role could not be recognized."
       );
-    }
-  } catch (error: any) {
-    console.log("Sign in error:", error);
+    } catch (error: any) {
+      console.log("Sign in error:", error);
 
-    if (
-      error.code === "auth/invalid-credential" ||
-      error.code === "auth/wrong-password" ||
-      error.code === "auth/user-not-found"
-    ) {
-      Alert.alert(
-        "Sign In Failed",
-        "Invalid email or password."
-      );
-    } else if (error.code === "auth/network-request-failed") {
-      Alert.alert(
-        "Network Error",
-        "Please check your internet connection."
-      );
-    } else {
-      Alert.alert(
-        "Sign In Failed",
-        error.message || "Something went wrong."
-      );
+      if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/user-not-found"
+      ) {
+        Alert.alert(
+          "Sign In Failed",
+          "Invalid email or password."
+        );
+      } else if (
+        error.code === "auth/invalid-email"
+      ) {
+        Alert.alert(
+          "Invalid Email",
+          "Please enter a valid email address."
+        );
+      } else if (
+        error.code === "auth/network-request-failed"
+      ) {
+        Alert.alert(
+          "Network Error",
+          "Please check your internet connection."
+        );
+      } else if (
+        error.code === "auth/too-many-requests"
+      ) {
+        Alert.alert(
+          "Too Many Attempts",
+          "Please wait a while and try again."
+        );
+      } else {
+        Alert.alert(
+          "Sign In Failed",
+          error.message || "Something went wrong."
+        );
+      }
+    } finally {
+      setSigningIn(false);
     }
   }
-}
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={
+          Platform.OS === "ios"
+            ? "padding"
+            : undefined
+        }
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={
+            styles.scrollContent
+          }
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backText}>{"< Back"}</Text>
+            <Text style={styles.backText}>
+              {"< Back"}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>
+              Welcome Back
+            </Text>
 
             <Text style={styles.subtitle}>
               Sign in to continue to Kindred Years
@@ -128,7 +218,9 @@ export default function SignInScreen() {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={styles.label}>
+              Email Address
+            </Text>
 
             <TextInput
               style={styles.input}
@@ -139,9 +231,12 @@ export default function SignInScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!signingIn}
             />
 
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>
+              Password
+            </Text>
 
             <TextInput
               style={styles.input}
@@ -150,20 +245,40 @@ export default function SignInScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              editable={!signingIn}
             />
 
-            <TouchableOpacity style={styles.forgotButton}>
+            <TouchableOpacity
+              style={styles.forgotButton}
+              disabled={signingIn}
+              onPress={() =>
+                Alert.alert(
+                  "Coming Soon",
+                  "Password reset will be added next."
+                )
+              }
+            >
               <Text style={styles.forgotText}>
                 Forgot Password?
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.signInButton}
+              style={[
+                styles.signInButton,
+                signingIn &&
+                  styles.signInButtonDisabled,
+              ]}
               onPress={handleSignIn}
+              disabled={signingIn}
+              activeOpacity={0.85}
             >
-              <Text style={styles.signInButtonText}>
-                Sign In
+              <Text
+                style={styles.signInButtonText}
+              >
+                {signingIn
+                  ? "Signing In..."
+                  : "Sign In"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -174,7 +289,10 @@ export default function SignInScreen() {
             </Text>
 
             <TouchableOpacity
-              onPress={() => router.push("/sign-up")}
+              onPress={() =>
+                router.push("/sign-up")
+              }
+              disabled={signingIn}
             >
               <Text style={styles.createText}>
                 Create Account
@@ -276,6 +394,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  signInButtonDisabled: {
+    opacity: 0.6,
   },
 
   signInButtonText: {
