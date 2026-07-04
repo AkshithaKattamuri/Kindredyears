@@ -1,10 +1,7 @@
-import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 
 export default function CaregiverDashboard() {
-
-  const router = useRouter();
 
 
   return (
@@ -23,10 +20,7 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/requests" as any)}
-      >
+      <TouchableOpacity style={styles.card}>
 
         <Text style={styles.cardText}>
           📩 Booking Requests
@@ -37,10 +31,7 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/patient" as any)}
-      >
+      <TouchableOpacity style={styles.card}>
 
         <Text style={styles.cardText}>
           👵 Patient Details
@@ -51,10 +42,7 @@ export default function CaregiverDashboard() {
 
 
 
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push("/caregiver/update" as any)}
-      >
+      <TouchableOpacity style={styles.card}>
 
         <Text style={styles.cardText}>
           📝 Daily Care Update
@@ -86,40 +74,40 @@ export default function CaregiverDashboard() {
 const styles = StyleSheet.create({
 
 
-  container: {
-    flex: 1,
-    padding: 25,
-    paddingTop: 60,
-    backgroundColor: "#ffffff",
-  },
+container:{
+ flex:1,
+ padding:25,
+ paddingTop:60,
+ backgroundColor:"#fff",
+},
 
 
-  title: {
-    fontSize: 30,
-    fontWeight: "bold",
-  },
+title:{
+ fontSize:30,
+ fontWeight:"bold",
+},
 
 
-  subtitle: {
-    fontSize: 18,
-    color: "gray",
-    marginBottom: 30,
-    marginTop: 8,
-  },
+subtitle:{
+ fontSize:18,
+ color:"gray",
+ marginTop:8,
+ marginBottom:30,
+},
 
 
-  card: {
-    backgroundColor: "#dbeafe",
-    padding: 22,
-    borderRadius: 15,
-    marginBottom: 18,
-  },
+card:{
+ backgroundColor:"#dbeafe",
+ padding:22,
+ borderRadius:15,
+ marginBottom:18,
+},
 
 
-  cardText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
+cardText:{
+ fontSize:18,
+ fontWeight:"600",
+},
 
 
 });
