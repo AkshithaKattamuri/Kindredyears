@@ -1,0 +1,34 @@
+{
+  "common": {
+    "welcome": "Bienvenue sur KindredYears",
+    "continue": "Continuer",
+    "back": "Retour",
+    "save": "Enregistrer",
+    "cancel": "Annuler"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?"
+  },
+  "elderly": {
+    "bookCaregiver": "Réserver un aidant",
+    "bookDoctor": "Prendre rendez-vous avec un médecin",
+    "emergency": "Urgence",
+    "appointments": "Rendez-vous"
+  },
+  "caregiver": {
+    "dashboard": "Tableau de bord de l'aidant",
+    "requests": "Demandes de soins",
+    "charges": "Tarifs",
+    "updates": "Mises à jour des soins"
+  },
+  "doctor": {
+    "dashboard": "Tableau de bord du médecin",
+    "appointments": "Rendez-vous",
+    "patients": "Patients",
+    "videoConsultation": "Consultation vidéo"
+  }
+}

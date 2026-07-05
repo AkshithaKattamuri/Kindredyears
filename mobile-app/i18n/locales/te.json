@@ -1,0 +1,65 @@
+{
+  "common": {
+    "welcome": "కిండ్రెడ్ ఇయర్స్‌కు స్వాగతం",
+    "continue": "కొనసాగించండి",
+    "back": "వెనుకకు",
+    "save": "సేవ్ చేయండి",
+    "cancel": "రద్దు చేయండి"
+  },
+  "auth": {
+    "signIn": "సైన్ ఇన్ చేయండి",
+    "signUp": "నమోదు చేసుకోండి",
+    "email": "ఇమెయిల్ చిరునామా",
+    "password": "పాస్‌వర్డ్",
+    "forgotPassword": "పాస్‌వర్డ్ మర్చిపోయారా?",
+
+    "welcomeBack": "మళ్లీ స్వాగతం",
+    "signInSubtitle": "కిండ్రెడ్ ఇయర్స్‌ను కొనసాగించడానికి సైన్ ఇన్ చేయండి",
+    "enterEmail": "మీ ఇమెయిల్‌ను నమోదు చేయండి",
+    "enterPassword": "మీ పాస్‌వర్డ్‌ను నమోదు చేయండి",
+    "noAccount": "ఖాతా లేదా?",
+    "createAccount": "ఖాతాను సృష్టించండి",
+
+    "missingDetails": "వివరాలు లేవు",
+    "enterEmailPassword": "దయచేసి మీ ఇమెయిల్ మరియు పాస్‌వర్డ్‌ను నమోదు చేయండి.",
+
+    "profileNotFound": "ప్రొఫైల్ కనబడలేదు",
+    "profileNotFoundMessage": "మీ కిండ్రెడ్ ఇయర్స్ ప్రొఫైల్ కనబడలేదు.",
+
+    "verificationPending": "ధృవీకరణ పెండింగ్‌లో ఉంది",
+    "caregiverVerificationPending": "మీ సంరక్షక ఖాతా నిర్వాహకుడి ఆమోదం కోసం వేచి ఉంది.",
+    "doctorVerificationPending": "మీ డాక్టర్ ఖాతా నిర్వాహకుడి ఆమోదం కోసం వేచి ఉంది.",
+
+    "invalidRole": "చెల్లని పాత్ర",
+    "invalidRoleMessage": "మీ ఖాతా పాత్రను గుర్తించలేకపోయాము.",
+
+    "signInFailed": "సైన్ ఇన్ విఫలమైంది",
+    "invalidEmailPassword": "ఇమెయిల్ లేదా పాస్‌వర్డ్ చెల్లదు.",
+
+    "networkError": "నెట్‌వర్క్ లోపం",
+    "checkInternet": "దయచేసి మీ ఇంటర్నెట్ కనెక్షన్‌ను తనిఖీ చేయండి.",
+
+    "tooManyAttempts": "చాలా ఎక్కువ ప్రయత్నాలు",
+    "tryAgainLater": "దయచేసి కొంతసేపు వేచి ఉండి మళ్లీ ప్రయత్నించండి.",
+
+    "somethingWentWrong": "ఏదో తప్పు జరిగింది. దయచేసి మళ్లీ ప్రయత్నించండి."
+  },
+  "elderly": {
+    "bookCaregiver": "సంరక్షకుడిని బుక్ చేయండి",
+    "bookDoctor": "డాక్టర్‌ను బుక్ చేయండి",
+    "emergency": "అత్యవసరం",
+    "appointments": "అపాయింట్‌మెంట్లు"
+  },
+  "caregiver": {
+    "dashboard": "సంరక్షకుల డ్యాష్‌బోర్డ్",
+    "requests": "సంరక్షణ అభ్యర్థనలు",
+    "charges": "ఛార్జీలు",
+    "updates": "సంరక్షణ నవీకరణలు"
+  },
+  "doctor": {
+    "dashboard": "డాక్టర్ డ్యాష్‌బోర్డ్",
+    "appointments": "అపాయింట్‌మెంట్లు",
+    "patients": "రోగులు",
+    "videoConsultation": "వీడియో సంప్రదింపు"
+  }
+}

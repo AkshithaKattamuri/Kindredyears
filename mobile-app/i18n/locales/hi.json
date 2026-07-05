@@ -1,0 +1,65 @@
+{
+  "common": {
+    "welcome": "KindredYears में आपका स्वागत है",
+    "continue": "जारी रखें",
+    "back": "वापस",
+    "save": "सहेजें",
+    "cancel": "रद्द करें"
+  },
+  "auth": {
+    "signIn": "साइन इन करें",
+    "signUp": "साइन अप करें",
+    "email": "ईमेल पता",
+    "password": "पासवर्ड",
+    "forgotPassword": "पासवर्ड भूल गए?",
+
+    "welcomeBack": "वापसी पर स्वागत है",
+    "signInSubtitle": "Kindred Years का उपयोग जारी रखने के लिए साइन इन करें",
+    "enterEmail": "अपना ईमेल दर्ज करें",
+    "enterPassword": "अपना पासवर्ड दर्ज करें",
+    "noAccount": "खाता नहीं है?",
+    "createAccount": "खाता बनाएँ",
+
+    "missingDetails": "जानकारी अधूरी है",
+    "enterEmailPassword": "कृपया अपना ईमेल और पासवर्ड दर्ज करें।",
+
+    "profileNotFound": "प्रोफ़ाइल नहीं मिली",
+    "profileNotFoundMessage": "आपकी Kindred Years प्रोफ़ाइल नहीं मिली।",
+
+    "verificationPending": "सत्यापन लंबित है",
+    "caregiverVerificationPending": "आपका देखभालकर्ता खाता व्यवस्थापक की स्वीकृति की प्रतीक्षा कर रहा है।",
+    "doctorVerificationPending": "आपका डॉक्टर खाता व्यवस्थापक की स्वीकृति की प्रतीक्षा कर रहा है।",
+
+    "invalidRole": "अमान्य भूमिका",
+    "invalidRoleMessage": "आपके खाते की भूमिका पहचानी नहीं जा सकी।",
+
+    "signInFailed": "साइन इन विफल रहा",
+    "invalidEmailPassword": "ईमेल या पासवर्ड अमान्य है।",
+
+    "networkError": "नेटवर्क त्रुटि",
+    "checkInternet": "कृपया अपना इंटरनेट कनेक्शन जाँचें।",
+
+    "tooManyAttempts": "बहुत अधिक प्रयास",
+    "tryAgainLater": "कृपया कुछ समय प्रतीक्षा करें और फिर से प्रयास करें।",
+
+    "somethingWentWrong": "कुछ गलत हो गया। कृपया फिर से प्रयास करें।"
+  },
+  "elderly": {
+    "bookCaregiver": "देखभालकर्ता बुक करें",
+    "bookDoctor": "डॉक्टर बुक करें",
+    "emergency": "आपातकाल",
+    "appointments": "अपॉइंटमेंट"
+  },
+  "caregiver": {
+    "dashboard": "देखभालकर्ता डैशबोर्ड",
+    "requests": "देखभाल अनुरोध",
+    "charges": "शुल्क",
+    "updates": "देखभाल अपडेट"
+  },
+  "doctor": {
+    "dashboard": "डॉक्टर डैशबोर्ड",
+    "appointments": "अपॉइंटमेंट",
+    "patients": "मरीज़",
+    "videoConsultation": "वीडियो परामर्श"
+  }
+}

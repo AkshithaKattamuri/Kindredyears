@@ -1,0 +1,69 @@
+{
+  "common": {
+    "welcome": "Welcome to KindredYears",
+    "continue": "Continue",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "email": "Email Address",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+
+    "welcomeBack": "Welcome Back",
+    "signInSubtitle": "Sign in to continue to Kindred Years",
+    "enterEmail": "Enter your email",
+    "enterPassword": "Enter your password",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create Account",
+
+    "missingDetails": "Missing Details",
+    "enterEmailPassword": "Please enter your email and password.",
+
+    "profileNotFound": "Profile Not Found",
+    "profileNotFoundMessage": "Your Kindred Years profile was not found.",
+
+    "verificationPending": "Verification Pending",
+    "caregiverVerificationPending": "Your caregiver account is waiting for admin approval.",
+    "doctorVerificationPending": "Your doctor account is waiting for admin approval.",
+
+    "invalidRole": "Invalid Role",
+    "invalidRoleMessage": "Your account role could not be recognized.",
+
+    "signInFailed": "Sign In Failed",
+    "invalidEmailPassword": "Invalid email or password.",
+
+    "networkError": "Network Error",
+    "checkInternet": "Please check your internet connection.",
+
+    "tooManyAttempts": "Too Many Attempts",
+    "tryAgainLater": "Please wait a while and try again.",
+
+    "somethingWentWrong": "Something went wrong. Please try again."
+  },
+
+  "elderly": {
+    "bookCaregiver": "Book a Caregiver",
+    "bookDoctor": "Book a Doctor",
+    "emergency": "Emergency",
+    "appointments": "Appointments"
+  },
+
+  "caregiver": {
+    "dashboard": "Caregiver Dashboard",
+    "requests": "Care Requests",
+    "charges": "Charges",
+    "updates": "Care Updates"
+  },
+
+  "doctor": {
+    "dashboard": "Doctor Dashboard",
+    "appointments": "Appointments",
+    "patients": "Patients",
+    "videoConsultation": "Video Consultation"
+  }
+}

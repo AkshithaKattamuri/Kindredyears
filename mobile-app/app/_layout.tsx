@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { Platform } from "react-native";
+import "../i18n";
+import { loadSavedLanguage } from "../i18n";
 import * as Notifications from "expo-notifications";
 
 Notifications.setNotificationHandler({
@@ -14,6 +16,7 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   useEffect(() => {
+     loadSavedLanguage();
     async function setupNotifications() {
       try {
         // Android notification channel

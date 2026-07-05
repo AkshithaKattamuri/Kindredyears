@@ -11,12 +11,15 @@ import {
   getDoc,
 } from "firebase/firestore";
 
+import { useTranslation } from "react-i18next";
+
 import { auth, db } from "../config/firebase";
 
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -27,16 +30,99 @@ import {
   View,
 } from "react-native";
 
+type LanguageCode = "en" | "te" | "ta" | "hi" | "fr";
+
+type Language = {
+  code: LanguageCode;
+  name: string;
+  nativeName: string;
+  shortName: string;
+};
+
+const languages: Language[] = [
+  {
+    code: "en",
+    name: "English",
+    nativeName: "English",
+    shortName: "EN",
+  },
+  {
+    code: "te",
+    name: "Telugu",
+    nativeName: "తెలుగు",
+    shortName: "తె",
+  },
+  {
+    code: "ta",
+    name: "Tamil",
+    nativeName: "தமிழ்",
+    shortName: "த",
+  },
+  {
+    code: "hi",
+    name: "Hindi",
+    nativeName: "हिन्दी",
+    shortName: "हि",
+  },
+  {
+    code: "fr",
+    name: "French",
+    nativeName: "Français",
+    shortName: "FR",
+  },
+];
+
 export default function SignInScreen() {
+  const { t, i18n } = useTranslation();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signingIn, setSigningIn] = useState(false);
 
+  const [languageModalVisible, setLanguageModalVisible] =
+    useState(false);
+
+  const currentLanguageCode =
+    (i18n.resolvedLanguage ||
+      i18n.language ||
+      "en") as LanguageCode;
+
+  const selectedLanguage =
+    languages.find(
+      (language) =>
+        language.code === currentLanguageCode
+    ) || languages[0];
+
+  async function handleLanguageChange(
+    languageCode: LanguageCode
+  ) {
+    try {
+      await i18n.changeLanguage(languageCode);
+
+      setLanguageModalVisible(false);
+    } catch (error) {
+      console.log(
+        "LANGUAGE CHANGE ERROR:",
+        error
+      );
+
+      Alert.alert(
+        "Language Error",
+        "Unable to change language. Please try again."
+      );
+    }
+  }
+
   async function handleSignIn() {
     if (!email.trim() || !password.trim()) {
       Alert.alert(
-        "Missing Details",
-        "Please enter your email and password."
+        t("auth.missingDetails", {
+          defaultValue: "Missing Details",
+        }),
+        t("auth.enterEmailPassword", {
+          defaultValue:
+            "Please enter your email and password.",
+        })
       );
       return;
     }
@@ -68,8 +154,13 @@ export default function SignInScreen() {
         await signOut(auth);
 
         Alert.alert(
-          "Profile Not Found",
-          "Your Kindred Years profile was not found."
+          t("auth.profileNotFound", {
+            defaultValue: "Profile Not Found",
+          }),
+          t("auth.profileNotFoundMessage", {
+            defaultValue:
+              "Your Kindred Years profile was not found.",
+          })
         );
 
         return;
@@ -115,8 +206,17 @@ export default function SignInScreen() {
           await signOut(auth);
 
           Alert.alert(
-            "Verification Pending",
-            "Your caregiver account is waiting for admin approval."
+            t("auth.verificationPending", {
+              defaultValue:
+                "Verification Pending",
+            }),
+            t(
+              "auth.caregiverVerificationPending",
+              {
+                defaultValue:
+                  "Your caregiver account is waiting for admin approval.",
+              }
+            )
           );
 
           return;
@@ -137,8 +237,17 @@ export default function SignInScreen() {
           await signOut(auth);
 
           Alert.alert(
-            "Verification Pending",
-            "Your doctor account is waiting for admin approval."
+            t("auth.verificationPending", {
+              defaultValue:
+                "Verification Pending",
+            }),
+            t(
+              "auth.doctorVerificationPending",
+              {
+                defaultValue:
+                  "Your doctor account is waiting for admin approval.",
+              }
+            )
           );
 
           return;
@@ -154,8 +263,13 @@ export default function SignInScreen() {
       await signOut(auth);
 
       Alert.alert(
-        "Invalid Role",
-        "Your account role could not be recognized."
+        t("auth.invalidRole", {
+          defaultValue: "Invalid Role",
+        }),
+        t("auth.invalidRoleMessage", {
+          defaultValue:
+            "Your account role could not be recognized.",
+        })
       );
     } catch (error: any) {
       console.log("SIGN IN ERROR:", error);
@@ -169,28 +283,48 @@ export default function SignInScreen() {
         errorCode === "auth/invalid-email"
       ) {
         Alert.alert(
-          "Sign In Failed",
-          "Invalid email or password."
+          t("auth.signInFailed", {
+            defaultValue: "Sign In Failed",
+          }),
+          t("auth.invalidEmailPassword", {
+            defaultValue:
+              "Invalid email or password.",
+          })
         );
       } else if (
         errorCode === "auth/network-request-failed"
       ) {
         Alert.alert(
-          "Network Error",
-          "Please check your internet connection."
+          t("auth.networkError", {
+            defaultValue: "Network Error",
+          }),
+          t("auth.checkInternet", {
+            defaultValue:
+              "Please check your internet connection.",
+          })
         );
       } else if (
         errorCode === "auth/too-many-requests"
       ) {
         Alert.alert(
-          "Too Many Attempts",
-          "Please wait a while and try again."
+          t("auth.tooManyAttempts", {
+            defaultValue: "Too Many Attempts",
+          }),
+          t("auth.tryAgainLater", {
+            defaultValue:
+              "Please wait a while and try again.",
+          })
         );
       } else {
         Alert.alert(
-          "Sign In Failed",
+          t("auth.signInFailed", {
+            defaultValue: "Sign In Failed",
+          }),
           error?.message ||
-            "Something went wrong. Please try again."
+            t("auth.somethingWentWrong", {
+              defaultValue:
+                "Something went wrong. Please try again.",
+            })
         );
       }
     } finally {
@@ -215,34 +349,77 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={signingIn}
-          >
-            <Text style={styles.backText}>
-              {"< Back"}
-            </Text>
-          </TouchableOpacity>
+          {/* Top navigation */}
+          <View style={styles.topRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              disabled={signingIn}
+            >
+              <Text style={styles.backText}>
+                {`< ${t("common.back", {
+                  defaultValue: "Back",
+                })}`}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Language selector */}
+            <TouchableOpacity
+              style={styles.languageButton}
+              onPress={() =>
+                setLanguageModalVisible(true)
+              }
+              disabled={signingIn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.globeText}>
+                🌐
+              </Text>
+
+              <Text
+                style={styles.languageButtonText}
+                numberOfLines={1}
+              >
+                {selectedLanguage.nativeName}
+              </Text>
+
+              <Text style={styles.chevronText}>
+                ▼
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.header}>
             <Text style={styles.title}>
-              Welcome Back
+              {t("auth.welcomeBack", {
+                defaultValue: "Welcome Back",
+              })}
             </Text>
 
             <Text style={styles.subtitle}>
-              Sign in to continue to Kindred Years
+              {t("auth.signInSubtitle", {
+                defaultValue:
+                  "Sign in to continue to Kindred Years",
+              })}
             </Text>
           </View>
 
           <View style={styles.form}>
             <Text style={styles.label}>
-              Email Address
+              {t("auth.email", {
+                defaultValue: "Email Address",
+              })}
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Enter your email"
+              placeholder={t(
+                "auth.enterEmail",
+                {
+                  defaultValue:
+                    "Enter your email",
+                }
+              )}
               placeholderTextColor="#9999A8"
               value={email}
               onChangeText={setEmail}
@@ -253,12 +430,20 @@ export default function SignInScreen() {
             />
 
             <Text style={styles.label}>
-              Password
+              {t("auth.password", {
+                defaultValue: "Password",
+              })}
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder={t(
+                "auth.enterPassword",
+                {
+                  defaultValue:
+                    "Enter your password",
+                }
+              )}
               placeholderTextColor="#9999A8"
               value={password}
               onChangeText={setPassword}
@@ -272,7 +457,10 @@ export default function SignInScreen() {
               disabled={signingIn}
             >
               <Text style={styles.forgotText}>
-                Forgot Password?
+                {t("auth.forgotPassword", {
+                  defaultValue:
+                    "Forgot Password?",
+                })}
               </Text>
             </TouchableOpacity>
 
@@ -292,9 +480,13 @@ export default function SignInScreen() {
                 />
               ) : (
                 <Text
-                  style={styles.signInButtonText}
+                  style={
+                    styles.signInButtonText
+                  }
                 >
-                  Sign In
+                  {t("auth.signIn", {
+                    defaultValue: "Sign In",
+                  })}
                 </Text>
               )}
             </TouchableOpacity>
@@ -302,7 +494,10 @@ export default function SignInScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Don't have an account?{" "}
+              {t("auth.noAccount", {
+                defaultValue:
+                  "Don't have an account?",
+              })}{" "}
             </Text>
 
             <TouchableOpacity
@@ -312,12 +507,144 @@ export default function SignInScreen() {
               disabled={signingIn}
             >
               <Text style={styles.createText}>
-                Create Account
+                {t("auth.createAccount", {
+                  defaultValue:
+                    "Create Account",
+                })}
               </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Language selection modal */}
+      <Modal
+        visible={languageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setLanguageModalVisible(false)
+        }
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() =>
+              setLanguageModalVisible(false)
+            }
+          />
+
+          <View style={styles.languageModal}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  Choose Language
+                </Text>
+
+                <Text style={styles.modalSubtitle}>
+                  Select your preferred language
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() =>
+                  setLanguageModalVisible(false)
+                }
+              >
+                <Text style={styles.closeText}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.languageList}>
+              {languages.map((language) => {
+                const isSelected =
+                  selectedLanguage.code ===
+                  language.code;
+
+                return (
+                  <TouchableOpacity
+                    key={language.code}
+                    style={[
+                      styles.languageOption,
+                      isSelected &&
+                        styles.selectedLanguageOption,
+                    ]}
+                    onPress={() =>
+                      handleLanguageChange(
+                        language.code
+                      )
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.languageIcon,
+                        isSelected &&
+                          styles.selectedLanguageIcon,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.languageIconText,
+                          isSelected &&
+                            styles.selectedLanguageIconText,
+                        ]}
+                      >
+                        {language.shortName}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.languageTextContainer
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.languageNativeName,
+                          isSelected &&
+                            styles.selectedLanguageText,
+                        ]}
+                      >
+                        {language.nativeName}
+                      </Text>
+
+                      {language.nativeName !==
+                        language.name && (
+                        <Text
+                          style={
+                            styles.languageEnglishName
+                          }
+                        >
+                          {language.name}
+                        </Text>
+                      )}
+                    </View>
+
+                    {isSelected && (
+                      <View
+                        style={styles.checkCircle}
+                      >
+                        <Text
+                          style={styles.checkText}
+                        >
+                          ✓
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -339,6 +666,12 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
 
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
   backButton: {
     alignSelf: "flex-start",
     paddingVertical: 10,
@@ -349,6 +682,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#4A3FB5",
     fontWeight: "600",
+  },
+
+  languageButton: {
+    maxWidth: 155,
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 21,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E4E1F2",
+  },
+
+  globeText: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+
+  languageButtonText: {
+    flexShrink: 1,
+    fontSize: 13,
+    color: "#1E1E2F",
+    fontWeight: "700",
+  },
+
+  chevronText: {
+    marginLeft: 6,
+    fontSize: 9,
+    color: "#6B6B7A",
   },
 
   header: {
@@ -427,6 +790,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 28,
+    flexWrap: "wrap",
   },
 
   footerText: {
@@ -438,5 +802,148 @@ const styles = StyleSheet.create({
     color: "#4A3FB5",
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(20, 18, 40, 0.48)",
+  },
+
+  languageModal: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom:
+      Platform.OS === "ios" ? 34 : 24,
+  },
+
+  modalHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#DDD9EA",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  modalTitle: {
+    fontSize: 23,
+    fontWeight: "800",
+    color: "#1E1E2F",
+  },
+
+  modalSubtitle: {
+    marginTop: 5,
+    fontSize: 14,
+    color: "#777586",
+  },
+
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F1FA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  closeText: {
+    fontSize: 16,
+    color: "#514F60",
+    fontWeight: "700",
+  },
+
+  languageList: {
+    gap: 10,
+  },
+
+  languageOption: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E8E5F0",
+    backgroundColor: "#FFFFFF",
+  },
+
+  selectedLanguageOption: {
+    borderColor: "#4A3FB5",
+    backgroundColor: "#F4F2FF",
+  },
+
+  languageIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: "#F1EFF8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 13,
+  },
+
+  selectedLanguageIcon: {
+    backgroundColor: "#4A3FB5",
+  },
+
+  languageIconText: {
+    fontSize: 14,
+    color: "#4A3FB5",
+    fontWeight: "800",
+  },
+
+  selectedLanguageIconText: {
+    color: "#FFFFFF",
+  },
+
+  languageTextContainer: {
+    flex: 1,
+  },
+
+  languageNativeName: {
+    fontSize: 16,
+    color: "#1E1E2F",
+    fontWeight: "700",
+  },
+
+  selectedLanguageText: {
+    color: "#4A3FB5",
+  },
+
+  languageEnglishName: {
+    marginTop: 3,
+    fontSize: 12,
+    color: "#858292",
+  },
+
+  checkCircle: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: "#4A3FB5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  checkText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
   },
 });
