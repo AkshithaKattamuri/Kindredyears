@@ -40,7 +40,7 @@ type MedicineStatus = "pending" | "taken" | "skipped";
 
 type Medicine = {
   id: string;
-  userId: string;
+  elderlyId: string;
   name: string;
   dosage: string;
   frequency: string;
@@ -100,7 +100,7 @@ export default function MedicinesScreen() {
 
     const medicinesQuery = query(
       collection(db, "medicines"),
-      where("userId", "==", user.uid)
+      where("elderlyId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -290,7 +290,7 @@ export default function MedicinesScreen() {
 
       // 2. Save medicine + notification ID
       await addDoc(collection(db, "medicines"), {
-        userId: user.uid,
+        elderlyId: user.uid,
 
         name: name.trim(),
 

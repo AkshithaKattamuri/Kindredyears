@@ -64,7 +64,6 @@ export default function RootLayout() {
 
     setupNotifications();
   }, []);
-
   return (
     <Stack
       screenOptions={{

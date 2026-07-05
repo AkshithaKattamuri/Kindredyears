@@ -18,9 +18,6 @@ export type LinkedElderly = {
   linkCode: string;
 };
 
-/**
- * Find an elderly user using their unique link code.
- */
 export async function findElderlyByLinkCode(
   enteredCode: string
 ): Promise<LinkedElderly> {
@@ -32,18 +29,18 @@ export async function findElderlyByLinkCode(
     throw new Error("Please enter a link code.");
   }
 
-  const elderlyQuery = query(
+  const q = query(
     collection(db, "users"),
     where("role", "==", "elderly"),
     where("linkCode", "==", normalizedCode),
     limit(1)
   );
 
-  const snapshot = await getDocs(elderlyQuery);
+  const snapshot = await getDocs(q);
 
   if (snapshot.empty) {
     throw new Error(
-      "No elderly account was found with this link code."
+      "No elderly account found with this link code."
     );
   }
 
@@ -51,7 +48,7 @@ export async function findElderlyByLinkCode(
   const data = elderlyDoc.data();
 
   return {
-    uid: data.uid || elderlyDoc.id,
+    uid: elderlyDoc.id,
     fullName: data.fullName || "Elderly Member",
     email: data.email || "",
     phone: data.phone || "",
@@ -59,10 +56,6 @@ export async function findElderlyByLinkCode(
   };
 }
 
-/**
- * Connect the currently signed-in family member
- * to an elderly user.
- */
 export async function linkFamilyToElderly(
   enteredCode: string,
   relationship: string
@@ -70,40 +63,25 @@ export async function linkFamilyToElderly(
   const familyUser = auth.currentUser;
 
   if (!familyUser) {
-    throw new Error(
-      "You must be signed in to link an elderly member."
-    );
-  }
-
-  if (!relationship.trim()) {
-    throw new Error(
-      "Please enter your relationship."
-    );
+    throw new Error("Please sign in again.");
   }
 
   const elderly =
     await findElderlyByLinkCode(enteredCode);
 
-  if (elderly.uid === familyUser.uid) {
-    throw new Error(
-      "You cannot link your account to itself."
-    );
-  }
-
-  // Check whether this exact connection already exists.
-  const existingConnectionQuery = query(
+  const existingQuery = query(
     collection(db, "familyConnections"),
     where("familyId", "==", familyUser.uid),
     where("elderlyId", "==", elderly.uid),
     limit(1)
   );
 
-  const existingConnectionSnapshot =
-    await getDocs(existingConnectionQuery);
+  const existingSnapshot =
+    await getDocs(existingQuery);
 
-  if (!existingConnectionSnapshot.empty) {
+  if (!existingSnapshot.empty) {
     throw new Error(
-      "This elderly member is already linked to your account."
+      "This elderly member is already linked."
     );
   }
 
@@ -112,49 +90,14 @@ export async function linkFamilyToElderly(
     {
       familyId: familyUser.uid,
       elderlyId: elderly.uid,
-
       elderlyName: elderly.fullName,
-
-      relationship: relationship
-        .trim()
-        .toLowerCase(),
-
+      relationship:
+        relationship.trim() || "family",
       status: "accepted",
-
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
   );
 
   return elderly;
-}
-
-/**
- * Get all elderly users linked to the
- * currently signed-in family member.
- */
-export async function getLinkedElderlyIds(): Promise<
-  string[]
-> {
-  const familyUser = auth.currentUser;
-
-  if (!familyUser) {
-    throw new Error("User is not signed in.");
-  }
-
-  const connectionsQuery = query(
-    collection(db, "familyConnections"),
-    where("familyId", "==", familyUser.uid),
-    where("status", "==", "accepted")
-  );
-
-  const snapshot =
-    await getDocs(connectionsQuery);
-
-  return snapshot.docs
-    .map((connectionDoc) => {
-      const data = connectionDoc.data();
-      return data.elderlyId as string;
-    })
-    .filter(Boolean);
 }

@@ -7,13 +7,19 @@ import {
 } from "firebase/auth";
 
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  query,
+  where,
 } from "firebase/firestore";
 
 import { auth, db } from "../config/firebase";
 
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -43,17 +49,23 @@ export default function SignInScreen() {
     try {
       setSigningIn(true);
 
-      // Step 1: Sign in using Firebase Authentication
+      // -----------------------------------------
+      // 1. FIREBASE AUTHENTICATION
+      // -----------------------------------------
+
       const userCredential =
         await signInWithEmailAndPassword(
           auth,
-          email.trim().toLowerCase(),
+          email.trim(),
           password
         );
 
       const user = userCredential.user;
 
-      // Step 2: Read user profile from Firestore
+      // -----------------------------------------
+      // 2. LOAD USER PROFILE FROM FIRESTORE
+      // -----------------------------------------
+
       const userDoc = await getDoc(
         doc(db, "users", user.uid)
       );
@@ -75,62 +87,122 @@ export default function SignInScreen() {
       const verificationStatus =
         userData.verificationStatus;
 
-      // Step 3: Block unapproved caregiver/doctor accounts
-      if (
-        (role === "caregiver" || role === "doctor") &&
-        verificationStatus !== "approved"
-      ) {
-        await signOut(auth);
+      console.log("Signed-in UID:", user.uid);
+      console.log("Signed-in role:", role);
 
-        Alert.alert(
-          "Verification Pending",
-          "Your account is waiting for admin approval."
-        );
-
-        return;
-      }
-
-      // Step 4: Route according to role
+      // -----------------------------------------
+      // 3. ELDERLY USER
+      // -----------------------------------------
 
       if (role === "elderly") {
         router.replace(
-          "/elderly/elderly-dashboard"
+          "/elderly/elderly-dashboard" as any
         );
+
         return;
       }
 
+      // -----------------------------------------
+      // 4. FAMILY USER
+      // -----------------------------------------
+
+      if (role === "family") {
+        // Check whether this family member
+        // is already linked to an elderly user
+
+        const connectionQuery = query(
+          collection(db, "familyConnections"),
+          where(
+            "familyId",
+            "==",
+            user.uid
+          ),
+          where(
+            "status",
+            "==",
+            "accepted"
+          ),
+          limit(1)
+        );
+
+        const connectionSnapshot =
+          await getDocs(connectionQuery);
+
+        if (connectionSnapshot.empty) {
+          // IMPORTANT:
+          // This route requires:
+          // app/family/link-elderly.tsx
+
+          router.replace(
+            "/family/link-elderly" as any
+          );
+
+          return;
+        }
+
+        // Your dashboard file:
+        // app/family/index.tsx
+
+        router.replace(
+          "/family" 
+        );
+
+        return;
+      }
+
+      // -----------------------------------------
+      // 5. CAREGIVER USER
+      // -----------------------------------------
+
       if (role === "caregiver") {
+        if (verificationStatus !== "approved") {
+          await signOut(auth);
+
+          Alert.alert(
+            "Verification Pending",
+            "Your caregiver account is waiting for admin approval."
+          );
+
+          return;
+        }
+
+        // Your friend can add this route/page.
         router.replace(
           "/caregiver/dashboard" as any
         );
-        return;
-      }
-
-      // Family dashboard is being added by teammate
-      if (role === "family") {
-        await signOut(auth);
-
-        Alert.alert(
-          "Dashboard Not Available",
-          "The Family dashboard is being added."
-        );
 
         return;
       }
 
-      // Doctor dashboard is being added by teammate
+      // -----------------------------------------
+      // 6. DOCTOR USER
+      // -----------------------------------------
+
       if (role === "doctor") {
-        await signOut(auth);
+        if (verificationStatus !== "approved") {
+          await signOut(auth);
 
-        Alert.alert(
-          "Dashboard Not Available",
-          "The Doctor dashboard is being added."
+          Alert.alert(
+            "Verification Pending",
+            "Your doctor account is waiting for admin approval."
+          );
+
+          return;
+        }
+
+        // Change only if your friend's
+        // actual doctor dashboard filename differs.
+        router.replace(
+          "/doctor/dashboard" as any
         );
 
         return;
       }
 
-      // Unknown role
+      // -----------------------------------------
+      // 7. INVALID ROLE
+      // -----------------------------------------
+
       await signOut(auth);
 
       Alert.alert(
@@ -138,42 +210,36 @@ export default function SignInScreen() {
         "Your account role could not be recognized."
       );
     } catch (error: any) {
-      console.log("Sign in error:", error);
+      console.log(
+        "Sign in error:",
+        error
+      );
 
       if (
-        error.code === "auth/invalid-credential" ||
-        error.code === "auth/wrong-password" ||
-        error.code === "auth/user-not-found"
+        error.code ===
+          "auth/invalid-credential" ||
+        error.code ===
+          "auth/wrong-password" ||
+        error.code ===
+          "auth/user-not-found"
       ) {
         Alert.alert(
           "Sign In Failed",
           "Invalid email or password."
         );
       } else if (
-        error.code === "auth/invalid-email"
-      ) {
-        Alert.alert(
-          "Invalid Email",
-          "Please enter a valid email address."
-        );
-      } else if (
-        error.code === "auth/network-request-failed"
+        error.code ===
+        "auth/network-request-failed"
       ) {
         Alert.alert(
           "Network Error",
           "Please check your internet connection."
         );
-      } else if (
-        error.code === "auth/too-many-requests"
-      ) {
-        Alert.alert(
-          "Too Many Attempts",
-          "Please wait a while and try again."
-        );
       } else {
         Alert.alert(
           "Sign In Failed",
-          error.message || "Something went wrong."
+          error.message ||
+            "Something went wrong."
         );
       }
     } finally {
@@ -201,6 +267,7 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            disabled={signingIn}
           >
             <Text style={styles.backText}>
               {"< Back"}
@@ -251,12 +318,6 @@ export default function SignInScreen() {
             <TouchableOpacity
               style={styles.forgotButton}
               disabled={signingIn}
-              onPress={() =>
-                Alert.alert(
-                  "Coming Soon",
-                  "Password reset will be added next."
-                )
-              }
             >
               <Text style={styles.forgotText}>
                 Forgot Password?
@@ -267,19 +328,24 @@ export default function SignInScreen() {
               style={[
                 styles.signInButton,
                 signingIn &&
-                  styles.signInButtonDisabled,
+                  styles.disabledButton,
               ]}
               onPress={handleSignIn}
               disabled={signingIn}
-              activeOpacity={0.85}
             >
-              <Text
-                style={styles.signInButtonText}
-              >
-                {signingIn
-                  ? "Signing In..."
-                  : "Sign In"}
-              </Text>
+              {signingIn ? (
+                <ActivityIndicator
+                  color="#FFFFFF"
+                />
+              ) : (
+                <Text
+                  style={
+                    styles.signInButtonText
+                  }
+                >
+                  Sign In
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -290,7 +356,9 @@ export default function SignInScreen() {
 
             <TouchableOpacity
               onPress={() =>
-                router.push("/sign-up")
+                router.push(
+                  "/sign-up" as any
+                )
               }
               disabled={signingIn}
             >
@@ -396,7 +464,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  signInButtonDisabled: {
+  disabledButton: {
     opacity: 0.6,
   },
 
