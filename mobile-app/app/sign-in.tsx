@@ -7,13 +7,8 @@ import {
 } from "firebase/auth";
 
 import {
-  collection,
   doc,
   getDoc,
-  getDocs,
-  limit,
-  query,
-  where,
 } from "firebase/firestore";
 
 import { auth, db } from "../config/firebase";
@@ -38,7 +33,7 @@ export default function SignInScreen() {
   const [signingIn, setSigningIn] = useState(false);
 
   async function handleSignIn() {
-    if (!email.trim() || !password) {
+    if (!email.trim() || !password.trim()) {
       Alert.alert(
         "Missing Details",
         "Please enter your email and password."
@@ -49,10 +44,7 @@ export default function SignInScreen() {
     try {
       setSigningIn(true);
 
-      // -----------------------------------------
-      // 1. FIREBASE AUTHENTICATION
-      // -----------------------------------------
-
+      // 1. Sign in with Firebase Authentication
       const userCredential =
         await signInWithEmailAndPassword(
           auth,
@@ -62,14 +54,16 @@ export default function SignInScreen() {
 
       const user = userCredential.user;
 
-      // -----------------------------------------
-      // 2. LOAD USER PROFILE FROM FIRESTORE
-      // -----------------------------------------
-
-      const userDoc = await getDoc(
-        doc(db, "users", user.uid)
+      // 2. Get user profile from Firestore
+      const userDocRef = doc(
+        db,
+        "users",
+        user.uid
       );
 
+      const userDoc = await getDoc(userDocRef);
+
+      // 3. Check whether profile exists
       if (!userDoc.exists()) {
         await signOut(auth);
 
@@ -83,79 +77,41 @@ export default function SignInScreen() {
 
       const userData = userDoc.data();
 
-      const role = userData.role;
+      const role =
+        typeof userData.role === "string"
+          ? userData.role.trim().toLowerCase()
+          : "";
+
       const verificationStatus =
-        userData.verificationStatus;
+        typeof userData.verificationStatus === "string"
+          ? userData.verificationStatus
+              .trim()
+              .toLowerCase()
+          : "";
 
       console.log("Signed-in UID:", user.uid);
       console.log("Signed-in role:", role);
 
-      // -----------------------------------------
-      // 3. ELDERLY USER
-      // -----------------------------------------
-
+      // 4. Elderly user
       if (role === "elderly") {
         router.replace(
           "/elderly/elderly-dashboard" as any
         );
-
         return;
       }
 
-      // -----------------------------------------
-      // 4. FAMILY USER
-      // -----------------------------------------
-
+      // 5. Family user
       if (role === "family") {
-        // Check whether this family member
-        // is already linked to an elderly user
-
-        const connectionQuery = query(
-          collection(db, "familyConnections"),
-          where(
-            "familyId",
-            "==",
-            user.uid
-          ),
-          where(
-            "status",
-            "==",
-            "accepted"
-          ),
-          limit(1)
-        );
-
-        const connectionSnapshot =
-          await getDocs(connectionQuery);
-
-        if (connectionSnapshot.empty) {
-          // IMPORTANT:
-          // This route requires:
-          // app/family/link-elderly.tsx
-
-          router.replace(
-            "/family/link-elderly" as any
-          );
-
-          return;
-        }
-
-        // Your dashboard file:
-        // app/family/index.tsx
-
-        router.replace(
-          "/family" 
-        );
-
+        router.replace("/family" as any);
         return;
       }
 
-      // -----------------------------------------
-      // 5. CAREGIVER USER
-      // -----------------------------------------
-
+      // 6. Caregiver user
       if (role === "caregiver") {
-        if (verificationStatus !== "approved") {
+        if (
+          verificationStatus &&
+          verificationStatus !== "approved"
+        ) {
           await signOut(auth);
 
           Alert.alert(
@@ -166,20 +122,18 @@ export default function SignInScreen() {
           return;
         }
 
-        // Your friend can add this route/page.
         router.replace(
           "/caregiver/dashboard" as any
         );
-
         return;
       }
 
-      // -----------------------------------------
-      // 6. DOCTOR USER
-      // -----------------------------------------
-
+      // 7. Doctor user
       if (role === "doctor") {
-        if (verificationStatus !== "approved") {
+        if (
+          verificationStatus &&
+          verificationStatus !== "approved"
+        ) {
           await signOut(auth);
 
           Alert.alert(
@@ -190,19 +144,13 @@ export default function SignInScreen() {
           return;
         }
 
-        // Change only if your friend's
-        // actual doctor dashboard filename differs.
         router.replace(
           "/doctor/dashboard" as any
         );
-
         return;
       }
 
-      // -----------------------------------------
-      // 7. INVALID ROLE
-      // -----------------------------------------
-
+      // 8. Unknown role
       await signOut(auth);
 
       Alert.alert(
@@ -210,36 +158,39 @@ export default function SignInScreen() {
         "Your account role could not be recognized."
       );
     } catch (error: any) {
-      console.log(
-        "Sign in error:",
-        error
-      );
+      console.log("SIGN IN ERROR:", error);
+
+      const errorCode = error?.code || "";
 
       if (
-        error.code ===
-          "auth/invalid-credential" ||
-        error.code ===
-          "auth/wrong-password" ||
-        error.code ===
-          "auth/user-not-found"
+        errorCode === "auth/invalid-credential" ||
+        errorCode === "auth/wrong-password" ||
+        errorCode === "auth/user-not-found" ||
+        errorCode === "auth/invalid-email"
       ) {
         Alert.alert(
           "Sign In Failed",
           "Invalid email or password."
         );
       } else if (
-        error.code ===
-        "auth/network-request-failed"
+        errorCode === "auth/network-request-failed"
       ) {
         Alert.alert(
           "Network Error",
           "Please check your internet connection."
         );
+      } else if (
+        errorCode === "auth/too-many-requests"
+      ) {
+        Alert.alert(
+          "Too Many Attempts",
+          "Please wait a while and try again."
+        );
       } else {
         Alert.alert(
           "Sign In Failed",
-          error.message ||
-            "Something went wrong."
+          error?.message ||
+            "Something went wrong. Please try again."
         );
       }
     } finally {
@@ -313,6 +264,7 @@ export default function SignInScreen() {
               onChangeText={setPassword}
               secureTextEntry
               editable={!signingIn}
+              onSubmitEditing={handleSignIn}
             />
 
             <TouchableOpacity
@@ -332,6 +284,7 @@ export default function SignInScreen() {
               ]}
               onPress={handleSignIn}
               disabled={signingIn}
+              activeOpacity={0.8}
             >
               {signingIn ? (
                 <ActivityIndicator
@@ -339,9 +292,7 @@ export default function SignInScreen() {
                 />
               ) : (
                 <Text
-                  style={
-                    styles.signInButtonText
-                  }
+                  style={styles.signInButtonText}
                 >
                   Sign In
                 </Text>
@@ -356,9 +307,7 @@ export default function SignInScreen() {
 
             <TouchableOpacity
               onPress={() =>
-                router.push(
-                  "/sign-up" as any
-                )
+                router.push("/sign-up" as any)
               }
               disabled={signingIn}
             >
@@ -392,31 +341,32 @@ const styles = StyleSheet.create({
 
   backButton: {
     alignSelf: "flex-start",
-    paddingVertical: 12,
-    marginBottom: 35,
+    paddingVertical: 10,
+    paddingRight: 15,
   },
 
   backText: {
-    color: "#4A3FB5",
     fontSize: 16,
+    color: "#4A3FB5",
     fontWeight: "600",
   },
 
   header: {
+    marginTop: 35,
     marginBottom: 35,
   },
 
   title: {
     fontSize: 34,
-    fontWeight: "700",
+    fontWeight: "bold",
     color: "#1E1E2F",
     marginBottom: 10,
   },
 
   subtitle: {
     fontSize: 16,
-    color: "#666677",
-    lineHeight: 24,
+    color: "#6B6B7A",
+    lineHeight: 23,
   },
 
   form: {
@@ -426,27 +376,26 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#303044",
+    color: "#1E1E2F",
     marginBottom: 8,
   },
 
   input: {
-    width: "100%",
-    height: 56,
+    height: 55,
     backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#DDDCE8",
     borderRadius: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     fontSize: 16,
-    color: "#1E1E2F",
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#DDDBE8",
+    color: "#1E1E2F",
   },
 
   forgotButton: {
     alignSelf: "flex-end",
-    marginTop: -4,
-    marginBottom: 25,
+    marginTop: -8,
+    marginBottom: 24,
   },
 
   forgotText: {
@@ -456,12 +405,11 @@ const styles = StyleSheet.create({
   },
 
   signInButton: {
-    width: "100%",
-    height: 56,
+    height: 55,
     backgroundColor: "#4A3FB5",
     borderRadius: 14,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
   },
 
   disabledButton: {
@@ -478,11 +426,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 30,
+    marginTop: 28,
   },
 
   footerText: {
-    color: "#666677",
+    color: "#6B6B7A",
     fontSize: 15,
   },
 

@@ -1,14 +1,19 @@
 import { router } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
+
 import {
   addDoc,
   collection,
+  doc,
+  getDoc,
   onSnapshot,
   query,
   serverTimestamp,
   where,
 } from "firebase/firestore";
+
 import { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -30,58 +35,81 @@ import DateTimePicker, {
 
 import { auth, db } from "../../config/firebase";
 
+type PlanType =
+  | "hourly"
+  | "fullDay"
+  | "monthly";
+
 type Caregiver = {
   id: string;
   uid: string;
   fullName: string;
   email?: string;
   phone?: string;
+
   role: "caregiver";
   verificationStatus: "approved";
+
   experience?: number | string;
   specialization?: string;
-  hourlyRate?: number;
   available?: boolean;
   bio?: string;
+
+  hourlyCharge?: number;
+  fullDayCharge?: number;
+  monthlyCharge?: number;
 };
 
 export default function CaregiverBookingScreen() {
-  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
-  const [selectedCaregiver, setSelectedCaregiver] =
-    useState<Caregiver | null>(null);
+  const [caregivers, setCaregivers] = useState<
+    Caregiver[]
+  >([]);
 
-  const [selectedDate, setSelectedDate] =
-    useState<Date | null>(null);
+  const [
+    selectedCaregiver,
+    setSelectedCaregiver,
+  ] = useState<Caregiver | null>(null);
 
-  const [selectedTime, setSelectedTime] =
-    useState<Date | null>(null);
+  const [
+    selectedPlan,
+    setSelectedPlan,
+  ] = useState<PlanType | null>(null);
 
-  const [durationHours, setDurationHours] =
-    useState("1");
+  const [
+    selectedDate,
+    setSelectedDate,
+  ] = useState<Date | null>(null);
 
-  const [careRequirement, setCareRequirement] =
-    useState("");
+  const [
+    selectedTime,
+    setSelectedTime,
+  ] = useState<Date | null>(null);
 
-  const [address, setAddress] =
-    useState("");
+  const [
+    careRequirement,
+    setCareRequirement,
+  ] = useState("");
 
-  const [phone, setPhone] =
-    useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(false);
 
-  const [booking, setBooking] =
-    useState(false);
+  const [
+    showBookingModal,
+    setShowBookingModal,
+  ] = useState(false);
 
-  const [showBookingModal, setShowBookingModal] =
-    useState(false);
+  const [
+    showDatePicker,
+    setShowDatePicker,
+  ] = useState(false);
 
-  const [showDatePicker, setShowDatePicker] =
-    useState(false);
-
-  const [showTimePicker, setShowTimePicker] =
-    useState(false);
+  const [
+    showTimePicker,
+    setShowTimePicker,
+  ] = useState(false);
 
   useEffect(() => {
     let unsubscribeCaregivers:
@@ -99,7 +127,7 @@ export default function CaregiverBookingScreen() {
             "Please sign in again."
           );
 
-          router.replace("/sign-in");
+          router.replace("/sign-in" as any);
           return;
         }
 
@@ -115,39 +143,118 @@ export default function CaregiverBookingScreen() {
 
         unsubscribeCaregivers = onSnapshot(
           caregiversQuery,
-          (snapshot) => {
-            const caregiverList: Caregiver[] =
-              snapshot.docs.map((caregiverDoc) => {
-                const data = caregiverDoc.data();
 
-                return {
-                  id: caregiverDoc.id,
-                  uid:
-                    data.uid ||
-                    caregiverDoc.id,
-                  fullName:
-                    data.fullName ||
-                    "Caregiver",
-                  email: data.email || "",
-                  phone: data.phone || "",
-                  role: "caregiver",
-                  verificationStatus: "approved",
-                  experience:
-                    data.experience,
-                  specialization:
-                    data.specialization,
-                  hourlyRate:
-                    data.hourlyRate,
-                  available:
-                    data.available,
-                  bio:
-                    data.bio,
-                };
-              });
+          async (snapshot) => {
+            try {
+              const caregiverList =
+                await Promise.all(
+                  snapshot.docs.map(
+                    async (caregiverDoc) => {
+                      const userData =
+                        caregiverDoc.data();
 
-            setCaregivers(caregiverList);
-            setLoading(false);
+                      const caregiverUid =
+                        userData.uid ||
+                        caregiverDoc.id;
+
+                      let pricingData: any = {};
+
+                      try {
+                        const pricingDoc =
+                          await getDoc(
+                            doc(
+                              db,
+                              "caregivers",
+                              caregiverUid
+                            )
+                          );
+
+                        if (pricingDoc.exists()) {
+                          pricingData =
+                            pricingDoc.data();
+                        }
+                      } catch (pricingError) {
+                        console.log(
+                          "Load caregiver pricing error:",
+                          pricingError
+                        );
+                      }
+
+                      const caregiver: Caregiver = {
+                        id: caregiverDoc.id,
+
+                        uid: caregiverUid,
+
+                        fullName:
+                          userData.fullName ||
+                          "Caregiver",
+
+                        email:
+                          userData.email || "",
+
+                        phone:
+                          userData.phone || "",
+
+                        role: "caregiver",
+
+                        verificationStatus:
+                          "approved",
+
+                        experience:
+                          pricingData.experience ??
+                          userData.experience,
+
+                        specialization:
+                          userData.specialization ||
+                          "",
+
+                        available:
+                          userData.available,
+
+                        bio:
+                          userData.bio || "",
+
+                        hourlyCharge:
+                          typeof pricingData.hourlyCharge ===
+                          "number"
+                            ? pricingData.hourlyCharge
+                            : undefined,
+
+                        fullDayCharge:
+                          typeof pricingData.fullDayCharge ===
+                          "number"
+                            ? pricingData.fullDayCharge
+                            : undefined,
+
+                        monthlyCharge:
+                          typeof pricingData.monthlyCharge ===
+                          "number"
+                            ? pricingData.monthlyCharge
+                            : undefined,
+                      };
+
+                      return caregiver;
+                    }
+                  )
+                );
+
+              setCaregivers(caregiverList);
+              setLoading(false);
+            } catch (error) {
+              console.log(
+                "Build caregiver list error:",
+                error
+              );
+
+              setLoading(false);
+
+              Alert.alert(
+                "Unable to Load",
+                "Could not load caregiver details."
+              );
+            }
           },
+
           (error) => {
             console.log(
               "Load caregivers error:",
@@ -179,12 +286,16 @@ export default function CaregiverBookingScreen() {
   ) {
     setSelectedCaregiver(caregiver);
 
+    setSelectedPlan(null);
     setSelectedDate(null);
     setSelectedTime(null);
-    setDurationHours("1");
+
     setCareRequirement("");
     setAddress("");
     setPhone("");
+
+    setShowDatePicker(false);
+    setShowTimePicker(false);
 
     setShowBookingModal(true);
   }
@@ -195,13 +306,17 @@ export default function CaregiverBookingScreen() {
     }
 
     setShowBookingModal(false);
+
     setSelectedCaregiver(null);
+    setSelectedPlan(null);
+
     setSelectedDate(null);
     setSelectedTime(null);
-    setDurationHours("1");
+
     setCareRequirement("");
     setAddress("");
     setPhone("");
+
     setShowDatePicker(false);
     setShowTimePicker(false);
   }
@@ -280,20 +395,80 @@ export default function CaregiverBookingScreen() {
       return false;
     }
 
-    const bookingDateTime =
-      new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        selectedTime.getHours(),
-        selectedTime.getMinutes(),
-        0,
-        0
-      );
+    const bookingDateTime = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      selectedTime.getHours(),
+      selectedTime.getMinutes(),
+      0,
+      0
+    );
 
+    return bookingDateTime.getTime() >
+      Date.now();
+  }
+
+  function getPlanLabel(
+    plan: PlanType | null
+  ) {
+    if (plan === "hourly") {
+      return "1 Hour";
+    }
+
+    if (plan === "fullDay") {
+      return "Full Day";
+    }
+
+    if (plan === "monthly") {
+      return "1 Month";
+    }
+
+    return "";
+  }
+
+  function getSelectedPrice() {
+    if (
+      !selectedCaregiver ||
+      !selectedPlan
+    ) {
+      return null;
+    }
+
+    if (selectedPlan === "hourly") {
+      return (
+        selectedCaregiver.hourlyCharge ??
+        null
+      );
+    }
+
+    if (selectedPlan === "fullDay") {
+      return (
+        selectedCaregiver.fullDayCharge ??
+        null
+      );
+    }
+
+    if (selectedPlan === "monthly") {
+      return (
+        selectedCaregiver.monthlyCharge ??
+        null
+      );
+    }
+
+    return null;
+  }
+
+  function hasAnyPrice(
+    caregiver: Caregiver
+  ) {
     return (
-      bookingDateTime.getTime() >
-      Date.now()
+      typeof caregiver.hourlyCharge ===
+        "number" ||
+      typeof caregiver.fullDayCharge ===
+        "number" ||
+      typeof caregiver.monthlyCharge ===
+        "number"
     );
   }
 
@@ -312,6 +487,29 @@ export default function CaregiverBookingScreen() {
       Alert.alert(
         "Caregiver Required",
         "Please select a caregiver."
+      );
+      return;
+    }
+
+    if (!selectedPlan) {
+      Alert.alert(
+        "Care Plan Required",
+        "Please select 1 Hour, Full Day, or 1 Month."
+      );
+      return;
+    }
+
+    const selectedPrice =
+      getSelectedPrice();
+
+    if (
+      selectedPrice === null ||
+      !Number.isFinite(selectedPrice) ||
+      selectedPrice <= 0
+    ) {
+      Alert.alert(
+        "Price Unavailable",
+        "This caregiver has not set a valid price for the selected plan."
       );
       return;
     }
@@ -336,20 +534,6 @@ export default function CaregiverBookingScreen() {
       Alert.alert(
         "Invalid Booking Time",
         "Please select a future date and time."
-      );
-      return;
-    }
-
-    const parsedDuration =
-      Number(durationHours);
-
-    if (
-      !Number.isFinite(parsedDuration) ||
-      parsedDuration <= 0
-    ) {
-      Alert.alert(
-        "Invalid Duration",
-        "Please enter a valid number of hours."
       );
       return;
     }
@@ -381,23 +565,15 @@ export default function CaregiverBookingScreen() {
     try {
       setBooking(true);
 
-      const bookingDateTime =
-        new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          selectedTime.getHours(),
-          selectedTime.getMinutes(),
-          0,
-          0
-        );
-
-      const estimatedAmount =
-        typeof selectedCaregiver.hourlyRate ===
-          "number"
-          ? selectedCaregiver.hourlyRate *
-            parsedDuration
-          : null;
+      const bookingDateTime = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        selectedTime.getHours(),
+        selectedTime.getMinutes(),
+        0,
+        0
+      );
 
       await addDoc(
         collection(
@@ -413,17 +589,32 @@ export default function CaregiverBookingScreen() {
           caregiverName:
             selectedCaregiver.fullName,
 
+          caregiverEmail:
+            selectedCaregiver.email || "",
+
+          planType:
+            selectedPlan,
+
+          planLabel:
+            getPlanLabel(selectedPlan),
+
+          selectedPrice:
+            selectedPrice,
+
+          totalPrice:
+            selectedPrice,
+
           bookingDate:
             getDateKey(selectedDate),
+
+          bookingDateLabel:
+            formatDate(selectedDate),
 
           bookingTime:
             formatTime(selectedTime),
 
           bookingDateTime:
             bookingDateTime,
-
-          durationHours:
-            parsedDuration,
 
           careRequirement:
             careRequirement.trim(),
@@ -434,13 +625,8 @@ export default function CaregiverBookingScreen() {
           contactPhone:
             phone.trim(),
 
-          hourlyRate:
-            selectedCaregiver.hourlyRate ??
-            null,
-
-          estimatedAmount,
-
-          status: "pending",
+          status:
+            "pending",
 
           createdAt:
             serverTimestamp(),
@@ -453,11 +639,23 @@ export default function CaregiverBookingScreen() {
       const caregiverName =
         selectedCaregiver.fullName;
 
-      closeBookingModal();
+      const planLabel =
+        getPlanLabel(selectedPlan);
+
+      setShowBookingModal(false);
+      setSelectedCaregiver(null);
+      setSelectedPlan(null);
+      setSelectedDate(null);
+      setSelectedTime(null);
+      setCareRequirement("");
+      setAddress("");
+      setPhone("");
+      setShowDatePicker(false);
+      setShowTimePicker(false);
 
       Alert.alert(
         "Booking Request Sent",
-        `Your request has been sent to ${caregiverName}. The caregiver can accept or reject it.`
+        `Your ${planLabel} request has been sent to ${caregiverName} for ₹${selectedPrice}.`
       );
     } catch (error) {
       console.log(
@@ -474,8 +672,29 @@ export default function CaregiverBookingScreen() {
     }
   }
 
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={styles.container}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color="#4A3FB5"
+          />
+
+          <Text style={styles.loadingText}>
+            Loading caregivers...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+    >
       <View style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -492,74 +711,58 @@ export default function CaregiverBookingScreen() {
           contentContainerStyle={
             styles.scrollContent
           }
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={
+            false
+          }
         >
           <Text style={styles.title}>
             Find a Caregiver
           </Text>
 
           <Text style={styles.subtitle}>
-            Browse approved caregivers and
-            send a care booking request.
+            Browse approved caregivers,
+            compare their prices, and send
+            a care booking request.
           </Text>
 
           <View style={styles.infoCard}>
             <View style={styles.infoIcon}>
-              <Text style={styles.infoIconText}>
+              <Text
+                style={styles.infoIconText}
+              >
                 C
               </Text>
             </View>
 
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>
-                Approved caregivers only
+                Verified Caregivers
               </Text>
 
               <Text style={styles.infoText}>
-                This page displays caregiver
-                accounts approved by the platform.
+                Only approved caregivers are
+                displayed here.
               </Text>
             </View>
           </View>
 
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>
-              Available Caregivers
-            </Text>
+          <Text style={styles.sectionTitle}>
+            Available Caregivers
+          </Text>
 
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>
-                {caregivers.length}
-              </Text>
-            </View>
-          </View>
-
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator
-                size="large"
-                color="#4A3FB5"
-              />
-
-              <Text style={styles.loadingText}>
-                Loading caregivers...
-              </Text>
-            </View>
-          ) : caregivers.length === 0 ? (
+          {caregivers.length === 0 ? (
             <View style={styles.emptyCard}>
-              <View style={styles.emptyIcon}>
-                <Text style={styles.emptyIconText}>
-                  C
-                </Text>
-              </View>
+              <Text style={styles.emptyIcon}>
+                👩‍⚕️
+              </Text>
 
               <Text style={styles.emptyTitle}>
-                No approved caregivers
+                No Caregivers Available
               </Text>
 
               <Text style={styles.emptyText}>
-                Approved caregiver accounts will
-                appear here automatically.
+                Approved caregivers will
+                appear here.
               </Text>
             </View>
           ) : (
@@ -568,465 +771,627 @@ export default function CaregiverBookingScreen() {
                 key={caregiver.id}
                 style={styles.caregiverCard}
               >
-                <View style={styles.cardTopRow}>
+                <View
+                  style={
+                    styles.caregiverHeader
+                  }
+                >
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {caregiver.fullName
-                        .charAt(0)
-                        .toUpperCase()}
+                    <Text
+                      style={styles.avatarText}
+                    >
+                      👩‍⚕️
                     </Text>
                   </View>
 
-                  <View style={styles.caregiverInfo}>
+                  <View
+                    style={
+                      styles.caregiverInfo
+                    }
+                  >
                     <Text
-                      style={styles.caregiverName}
+                      style={
+                        styles.caregiverName
+                      }
                     >
                       {caregiver.fullName}
                     </Text>
 
                     <Text
                       style={
-                        styles.specializationText
+                        styles.specialization
                       }
                     >
                       {caregiver.specialization ||
                         "Elderly Care"}
                     </Text>
 
-                    <View
-                      style={styles.approvedRow}
-                    >
-                      <View
-                        style={styles.approvedDot}
-                      />
-
+                    {caregiver.experience !==
+                      undefined && (
                       <Text
                         style={
-                          styles.approvedText
+                          styles.experience
                         }
                       >
-                        Approved Caregiver
+                        Experience:{" "}
+                        {String(
+                          caregiver.experience
+                        )}
                       </Text>
-                    </View>
+                    )}
+                  </View>
+
+                  <View
+                    style={
+                      styles.verifiedBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.verifiedText
+                      }
+                    >
+                      ✓
+                    </Text>
                   </View>
                 </View>
 
-                <View style={styles.detailsGrid}>
-                  <DetailBox
-                    label="Experience"
-                    value={
-                      caregiver.experience !==
-                      undefined
-                        ? `${caregiver.experience} yrs`
-                        : "Not added"
-                    }
-                  />
-
-                  <DetailBox
-                    label="Hourly Rate"
-                    value={
-                      caregiver.hourlyRate !==
-                      undefined
-                        ? `₹${caregiver.hourlyRate}`
-                        : "Not added"
-                    }
-                  />
-                </View>
-
                 {caregiver.bio ? (
-                  <Text style={styles.bioText}>
+                  <Text style={styles.bio}>
                     {caregiver.bio}
                   </Text>
                 ) : null}
 
-                <TouchableOpacity
-                  style={styles.bookButton}
-                  onPress={() =>
-                    openBookingModal(caregiver)
-                  }
+                <View style={styles.divider} />
+
+                <Text
+                  style={styles.chargesTitle}
                 >
-                  <Text
-                    style={styles.bookButtonText}
-                  >
-                    Book Caregiver
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))
-          )}
+                  Service Charges
+                </Text>
 
-          <View style={styles.bottomSpace} />
-        </ScrollView>
-
-        <Modal
-          visible={showBookingModal}
-          animationType="slide"
-          transparent
-          onRequestClose={
-            closeBookingModal
-          }
-        >
-          <KeyboardAvoidingView
-            style={styles.modalOverlay}
-            behavior={
-              Platform.OS === "ios"
-                ? "padding"
-                : undefined
-            }
-          >
-            <View style={styles.modalCard}>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                <View style={styles.modalHeader}>
-                  <View style={styles.modalHeaderText}>
+                <View style={styles.priceRow}>
+                  <View style={styles.priceBox}>
                     <Text
-                      style={styles.modalTitle}
+                      style={styles.priceIcon}
                     >
-                      Book Caregiver
+                      ⏱️
                     </Text>
 
-                    <Text
-                      style={styles.modalSubtitle}
-                    >
-                      {selectedCaregiver?.fullName}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={
-                      closeBookingModal
-                    }
-                    disabled={booking}
-                  >
-                    <Text
-                      style={
-                        styles.closeButtonText
-                      }
-                    >
-                      X
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {selectedCaregiver ? (
-                  <View
-                    style={
-                      styles.selectedCaregiverCard
-                    }
-                  >
-                    <View
-                      style={
-                        styles.selectedAvatar
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.selectedAvatarText
-                        }
-                      >
-                        {selectedCaregiver.fullName
-                          .charAt(0)
-                          .toUpperCase()}
-                      </Text>
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={
-                          styles.selectedName
-                        }
-                      >
-                        {
-                          selectedCaregiver.fullName
-                        }
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.selectedSpecialization
-                        }
-                      >
-                        {selectedCaregiver.specialization ||
-                          "Elderly Care"}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-
-                <Text style={styles.label}>
-                  Booking Date
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() =>
-                    setShowDatePicker(true)
-                  }
-                  disabled={booking}
-                >
-                  <Text
-                    style={[
-                      styles.pickerText,
-                      !selectedDate &&
-                        styles.placeholderText,
-                    ]}
-                  >
-                    {selectedDate
-                      ? formatDate(selectedDate)
-                      : "Select date"}
-                  </Text>
-
-                  <Text style={styles.pickerIcon}>
-                    D
-                  </Text>
-                </TouchableOpacity>
-
-                {showDatePicker ? (
-                  <DateTimePicker
-                    value={
-                      selectedDate ||
-                      new Date()
-                    }
-                    mode="date"
-                    minimumDate={new Date()}
-                    display={
-                      Platform.OS === "android"
-                        ? "default"
-                        : "spinner"
-                    }
-                    onChange={
-                      handleDateChange
-                    }
-                  />
-                ) : null}
-
-                <Text style={styles.label}>
-                  Booking Time
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() =>
-                    setShowTimePicker(true)
-                  }
-                  disabled={booking}
-                >
-                  <Text
-                    style={[
-                      styles.pickerText,
-                      !selectedTime &&
-                        styles.placeholderText,
-                    ]}
-                  >
-                    {selectedTime
-                      ? formatTime(selectedTime)
-                      : "Select time"}
-                  </Text>
-
-                  <Text style={styles.pickerIcon}>
-                    T
-                  </Text>
-                </TouchableOpacity>
-
-                {showTimePicker ? (
-                  <DateTimePicker
-                    value={
-                      selectedTime ||
-                      new Date()
-                    }
-                    mode="time"
-                    is24Hour={false}
-                    display={
-                      Platform.OS === "android"
-                        ? "default"
-                        : "spinner"
-                    }
-                    onChange={
-                      handleTimeChange
-                    }
-                  />
-                ) : null}
-
-                <Text style={styles.label}>
-                  Duration in Hours
-                </Text>
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="Example: 2"
-                  placeholderTextColor="#9999A8"
-                  value={durationHours}
-                  onChangeText={
-                    setDurationHours
-                  }
-                  keyboardType="numeric"
-                  editable={!booking}
-                />
-
-                <Text style={styles.label}>
-                  Contact Phone Number
-                </Text>
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter contact number"
-                  placeholderTextColor="#9999A8"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  editable={!booking}
-                />
-
-                <Text style={styles.label}>
-                  Care Location
-                </Text>
-
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.addressInput,
-                  ]}
-                  placeholder="Enter full address"
-                  placeholderTextColor="#9999A8"
-                  value={address}
-                  onChangeText={setAddress}
-                  multiline
-                  textAlignVertical="top"
-                  editable={!booking}
-                />
-
-                <Text style={styles.label}>
-                  Care Requirement
-                </Text>
-
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.requirementInput,
-                  ]}
-                  placeholder="Example: Need help with mobility, meals and medicine reminders"
-                  placeholderTextColor="#9999A8"
-                  value={careRequirement}
-                  onChangeText={
-                    setCareRequirement
-                  }
-                  multiline
-                  textAlignVertical="top"
-                  editable={!booking}
-                />
-
-                {selectedCaregiver &&
-                typeof selectedCaregiver.hourlyRate ===
-                  "number" &&
-                Number(durationHours) > 0 ? (
-                  <View
-                    style={styles.priceCard}
-                  >
                     <Text
                       style={styles.priceLabel}
                     >
-                      Estimated Amount
+                      1 Hour
                     </Text>
 
                     <Text
                       style={styles.priceValue}
                     >
-                      ₹
-                      {selectedCaregiver.hourlyRate *
-                        Number(
-                          durationHours
-                        )}
+                      {typeof caregiver.hourlyCharge ===
+                      "number"
+                        ? `₹${caregiver.hourlyCharge}`
+                        : "--"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.priceBox}>
+                    <Text
+                      style={styles.priceIcon}
+                    >
+                      ☀️
                     </Text>
 
                     <Text
-                      style={styles.priceNote}
+                      style={styles.priceLabel}
                     >
-                      ₹
-                      {
-                        selectedCaregiver.hourlyRate
-                      }{" "}
-                      × {durationHours} hour(s)
+                      Full Day
+                    </Text>
+
+                    <Text
+                      style={styles.priceValue}
+                    >
+                      {typeof caregiver.fullDayCharge ===
+                      "number"
+                        ? `₹${caregiver.fullDayCharge}`
+                        : "--"}
                     </Text>
                   </View>
-                ) : null}
+
+                  <View style={styles.priceBox}>
+                    <Text
+                      style={styles.priceIcon}
+                    >
+                      📅
+                    </Text>
+
+                    <Text
+                      style={styles.priceLabel}
+                    >
+                      1 Month
+                    </Text>
+
+                    <Text
+                      style={styles.priceValue}
+                    >
+                      {typeof caregiver.monthlyCharge ===
+                      "number"
+                        ? `₹${caregiver.monthlyCharge}`
+                        : "--"}
+                    </Text>
+                  </View>
+                </View>
 
                 <TouchableOpacity
                   style={[
-                    styles.confirmButton,
-                    booking &&
-                      styles.disabledButton,
+                    styles.bookButton,
+                    !hasAnyPrice(caregiver) &&
+                      styles.unavailableButton,
                   ]}
-                  onPress={
-                    handleBookCaregiver
+                  onPress={() =>
+                    openBookingModal(caregiver)
                   }
-                  disabled={booking}
+                  disabled={
+                    !hasAnyPrice(caregiver)
+                  }
                 >
-                  {booking ? (
-                    <ActivityIndicator
-                      color="#FFFFFF"
-                    />
-                  ) : (
-                    <Text
-                      style={
-                        styles.confirmButtonText
-                      }
-                    >
-                      Send Booking Request
-                    </Text>
-                  )}
+                  <Text
+                    style={styles.bookButtonText}
+                  >
+                    {hasAnyPrice(caregiver)
+                      ? "View Plans & Book"
+                      : "Pricing Not Available"}
+                  </Text>
                 </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+
+      <Modal
+        visible={showBookingModal}
+        animationType="slide"
+        transparent
+        onRequestClose={closeBookingModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={
+            Platform.OS === "ios"
+              ? "padding"
+              : undefined
+          }
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHandle} />
+
+            <ScrollView
+              contentContainerStyle={
+                styles.modalContent
+              }
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={
+                false
+              }
+            >
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={styles.modalTitle}
+                  >
+                    Book Caregiver
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.modalSubtitle
+                    }
+                  >
+                    {selectedCaregiver?.fullName}
+                  </Text>
+                </View>
 
                 <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={
-                    closeBookingModal
-                  }
+                  style={styles.closeButton}
+                  onPress={closeBookingModal}
                   disabled={booking}
                 >
                   <Text
-                    style={
-                      styles.cancelButtonText
-                    }
+                    style={styles.closeText}
                   >
-                    Cancel
+                    ✕
                   </Text>
                 </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      </View>
+              </View>
+
+              <Text style={styles.fieldLabel}>
+                Select Care Plan
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.planCard,
+                  selectedPlan === "hourly" &&
+                    styles.selectedPlanCard,
+                ]}
+                onPress={() =>
+                  setSelectedPlan("hourly")
+                }
+                disabled={
+                  typeof selectedCaregiver?.hourlyCharge !==
+                  "number"
+                }
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.planTitle,
+                      selectedPlan ===
+                        "hourly" &&
+                        styles.selectedPlanText,
+                    ]}
+                  >
+                    ⏱️ 1 Hour
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.planDescription,
+                      selectedPlan ===
+                        "hourly" &&
+                        styles.selectedPlanDescription,
+                    ]}
+                  >
+                    Short-term assistance
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.planPrice,
+                    selectedPlan ===
+                      "hourly" &&
+                      styles.selectedPlanText,
+                  ]}
+                >
+                  {typeof selectedCaregiver?.hourlyCharge ===
+                  "number"
+                    ? `₹${selectedCaregiver.hourlyCharge}`
+                    : "Unavailable"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.planCard,
+                  selectedPlan ===
+                    "fullDay" &&
+                    styles.selectedPlanCard,
+                ]}
+                onPress={() =>
+                  setSelectedPlan("fullDay")
+                }
+                disabled={
+                  typeof selectedCaregiver?.fullDayCharge !==
+                  "number"
+                }
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.planTitle,
+                      selectedPlan ===
+                        "fullDay" &&
+                        styles.selectedPlanText,
+                    ]}
+                  >
+                    ☀️ Full Day
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.planDescription,
+                      selectedPlan ===
+                        "fullDay" &&
+                        styles.selectedPlanDescription,
+                    ]}
+                  >
+                    Complete day assistance
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.planPrice,
+                    selectedPlan ===
+                      "fullDay" &&
+                      styles.selectedPlanText,
+                  ]}
+                >
+                  {typeof selectedCaregiver?.fullDayCharge ===
+                  "number"
+                    ? `₹${selectedCaregiver.fullDayCharge}`
+                    : "Unavailable"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.planCard,
+                  selectedPlan ===
+                    "monthly" &&
+                    styles.selectedPlanCard,
+                ]}
+                onPress={() =>
+                  setSelectedPlan("monthly")
+                }
+                disabled={
+                  typeof selectedCaregiver?.monthlyCharge !==
+                  "number"
+                }
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.planTitle,
+                      selectedPlan ===
+                        "monthly" &&
+                        styles.selectedPlanText,
+                    ]}
+                  >
+                    📅 1 Month
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.planDescription,
+                      selectedPlan ===
+                        "monthly" &&
+                        styles.selectedPlanDescription,
+                    ]}
+                  >
+                    Long-term monthly care
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.planPrice,
+                    selectedPlan ===
+                      "monthly" &&
+                      styles.selectedPlanText,
+                  ]}
+                >
+                  {typeof selectedCaregiver?.monthlyCharge ===
+                  "number"
+                    ? `₹${selectedCaregiver.monthlyCharge}`
+                    : "Unavailable"}
+                </Text>
+              </TouchableOpacity>
+
+              {selectedPlan && (
+                <View
+                  style={styles.summaryCard}
+                >
+                  <Text
+                    style={styles.summaryTitle}
+                  >
+                    Selected Plan
+                  </Text>
+
+                  <View
+                    style={styles.summaryRow}
+                  >
+                    <Text
+                      style={
+                        styles.summaryLabel
+                      }
+                    >
+                      Duration
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.summaryValue
+                      }
+                    >
+                      {getPlanLabel(
+                        selectedPlan
+                      )}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={styles.summaryRow}
+                  >
+                    <Text
+                      style={
+                        styles.totalLabel
+                      }
+                    >
+                      Price
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.totalPrice
+                      }
+                    >
+                      ₹{getSelectedPrice() ?? 0}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              <Text style={styles.fieldLabel}>
+                Booking Date
+              </Text>
+
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() =>
+                  setShowDatePicker(true)
+                }
+              >
+                <Text
+                  style={
+                    selectedDate
+                      ? styles.pickerValue
+                      : styles.pickerPlaceholder
+                  }
+                >
+                  {selectedDate
+                    ? formatDate(selectedDate)
+                    : "Select booking date"}
+                </Text>
+
+                <Text style={styles.pickerIcon}>
+                  📅
+                </Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={
+                    selectedDate ||
+                    new Date()
+                  }
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={handleDateChange}
+                />
+              )}
+
+              <Text style={styles.fieldLabel}>
+                Booking Time
+              </Text>
+
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() =>
+                  setShowTimePicker(true)
+                }
+              >
+                <Text
+                  style={
+                    selectedTime
+                      ? styles.pickerValue
+                      : styles.pickerPlaceholder
+                  }
+                >
+                  {selectedTime
+                    ? formatTime(selectedTime)
+                    : "Select booking time"}
+                </Text>
+
+                <Text style={styles.pickerIcon}>
+                  🕒
+                </Text>
+              </TouchableOpacity>
+
+              {showTimePicker && (
+                <DateTimePicker
+                  value={
+                    selectedTime ||
+                    new Date()
+                  }
+                  mode="time"
+                  onChange={handleTimeChange}
+                />
+              )}
+
+              <Text style={styles.fieldLabel}>
+                Care Requirement
+              </Text>
+
+              <TextInput
+                style={styles.textArea}
+                placeholder="Describe the assistance needed"
+                placeholderTextColor="#9999A8"
+                value={careRequirement}
+                onChangeText={
+                  setCareRequirement
+                }
+                multiline
+                textAlignVertical="top"
+              />
+
+              <Text style={styles.fieldLabel}>
+                Care Location
+              </Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Enter full address"
+                placeholderTextColor="#9999A8"
+                value={address}
+                onChangeText={setAddress}
+              />
+
+              <Text style={styles.fieldLabel}>
+                Contact Phone
+              </Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Enter phone number"
+                placeholderTextColor="#9999A8"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  booking &&
+                    styles.disabledButton,
+                ]}
+                onPress={
+                  handleBookCaregiver
+                }
+                disabled={booking}
+              >
+                {booking ? (
+                  <ActivityIndicator
+                    color="#FFFFFF"
+                  />
+                ) : (
+                  <Text
+                    style={
+                      styles.confirmButtonText
+                    }
+                  >
+                    Send Booking Request
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={closeBookingModal}
+                disabled={booking}
+              >
+                <Text
+                  style={
+                    styles.cancelButtonText
+                  }
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
-  );
-}
-
-function DetailBox({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.detailBox}>
-      <Text style={styles.detailLabel}>
-        {label}
-      </Text>
-
-      <Text style={styles.detailValue}>
-        {value}
-      </Text>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F7FC",
+    backgroundColor: "#F8F7FF",
   },
 
   screen: {
@@ -1034,27 +1399,26 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 6,
+    paddingHorizontal: 22,
+    paddingTop: 12,
   },
 
   backButton: {
     alignSelf: "flex-start",
     paddingVertical: 10,
-    paddingRight: 10,
+    paddingRight: 15,
   },
 
   backText: {
-    color: "#4A3FB5",
     fontSize: 16,
+    color: "#4A3FB5",
     fontWeight: "700",
   },
 
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 30,
+    paddingHorizontal: 22,
+    paddingTop: 15,
+    paddingBottom: 45,
   },
 
   title: {
@@ -1064,36 +1428,36 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#77778A",
-    lineHeight: 21,
-    marginTop: 7,
-    marginBottom: 20,
+    marginTop: 8,
+    lineHeight: 22,
+    marginBottom: 22,
   },
 
   infoCard: {
-    backgroundColor: "#EEEAFE",
-    borderRadius: 18,
+    backgroundColor: "#EDE9FE",
     padding: 16,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 26,
+    marginBottom: 28,
   },
 
   infoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#4A3FB5",
-    alignItems: "center",
     justifyContent: "center",
-    marginRight: 13,
+    alignItems: "center",
+    marginRight: 12,
   },
 
   infoIconText: {
     color: "#FFFFFF",
+    fontWeight: "800",
     fontSize: 18,
-    fontWeight: "900",
   },
 
   infoContent: {
@@ -1101,126 +1465,57 @@ const styles = StyleSheet.create({
   },
 
   infoTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
-    color: "#303044",
+    color: "#3D347E",
   },
 
   infoText: {
-    fontSize: 12,
-    color: "#666677",
+    fontSize: 13,
+    color: "#625B7C",
+    marginTop: 3,
     lineHeight: 18,
-    marginTop: 4,
-  },
-
-  sectionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
   },
 
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "800",
     color: "#1E1E2F",
-  },
-
-  countBadge: {
-    minWidth: 27,
-    height: 27,
-    borderRadius: 14,
-    backgroundColor: "#EEEAFE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-    paddingHorizontal: 7,
-  },
-
-  countText: {
-    color: "#4A3FB5",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-
-  loadingBox: {
-    minHeight: 220,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  loadingText: {
-    color: "#77778A",
-    fontSize: 14,
-    marginTop: 12,
-  },
-
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    minHeight: 230,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 2,
-  },
-
-  emptyIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: "#EEEAFE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-
-  emptyIconText: {
-    color: "#4A3FB5",
-    fontSize: 22,
-    fontWeight: "900",
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1E1E2F",
-  },
-
-  emptyText: {
-    fontSize: 13,
-    color: "#77778A",
-    lineHeight: 19,
-    textAlign: "center",
-    marginTop: 7,
+    marginBottom: 15,
   },
 
   caregiverCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 17,
-    marginBottom: 15,
-    elevation: 2,
+    borderRadius: 19,
+    padding: 18,
+    marginBottom: 18,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
   },
 
-  cardTopRow: {
+  caregiverHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
 
   avatar: {
-    width: 62,
-    height: 62,
-    borderRadius: 20,
-    backgroundColor: "#EEEAFE",
-    alignItems: "center",
+    width: 55,
+    height: 55,
+    borderRadius: 28,
+    backgroundColor: "#EDE9FE",
     justifyContent: "center",
-    marginRight: 14,
+    alignItems: "center",
+    marginRight: 13,
   },
 
   avatarText: {
-    color: "#4A3FB5",
-    fontSize: 24,
-    fontWeight: "900",
+    fontSize: 27,
   },
 
   caregiverInfo: {
@@ -1228,122 +1523,184 @@ const styles = StyleSheet.create({
   },
 
   caregiverName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
     color: "#1E1E2F",
   },
 
-  specializationText: {
+  specialization: {
+    fontSize: 14,
+    color: "#4A3FB5",
+    marginTop: 3,
+    fontWeight: "600",
+  },
+
+  experience: {
     fontSize: 13,
-    color: "#666677",
+    color: "#77778A",
     marginTop: 4,
   },
 
-  approvedRow: {
-    flexDirection: "row",
+  verifiedBadge: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    backgroundColor: "#DCFCE7",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 7,
   },
 
-  approvedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#2D9D5C",
-    marginRight: 6,
+  verifiedText: {
+    color: "#15803D",
+    fontWeight: "900",
   },
 
-  approvedText: {
-    fontSize: 11,
-    color: "#2D9D5C",
+  bio: {
+    fontSize: 14,
+    color: "#666677",
+    lineHeight: 20,
+    marginTop: 15,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#EEEEF3",
+    marginVertical: 16,
+  },
+
+  chargesTitle: {
+    fontSize: 14,
     fontWeight: "700",
+    color: "#555566",
+    marginBottom: 12,
   },
 
-  detailsGrid: {
+  priceRow: {
     flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
+    gap: 8,
   },
 
-  detailBox: {
+  priceBox: {
     flex: 1,
     backgroundColor: "#F8F7FF",
-    borderRadius: 13,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    alignItems: "center",
   },
 
-  detailLabel: {
-    fontSize: 10,
-    color: "#888899",
-    fontWeight: "700",
+  priceIcon: {
+    fontSize: 20,
   },
 
-  detailValue: {
-    fontSize: 13,
-    color: "#303044",
+  priceLabel: {
+    fontSize: 11,
+    color: "#77778A",
+    marginTop: 5,
+  },
+
+  priceValue: {
+    fontSize: 14,
     fontWeight: "800",
+    color: "#15803D",
     marginTop: 4,
-  },
-
-  bioText: {
-    fontSize: 13,
-    color: "#666677",
-    lineHeight: 19,
-    marginTop: 14,
   },
 
   bookButton: {
-    height: 50,
-    borderRadius: 14,
     backgroundColor: "#4A3FB5",
-    alignItems: "center",
+    height: 50,
+    borderRadius: 13,
     justifyContent: "center",
-    marginTop: 16,
+    alignItems: "center",
+    marginTop: 18,
+  },
+
+  unavailableButton: {
+    backgroundColor: "#AAAABB",
   },
 
   bookButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
+  },
+
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 35,
+    borderRadius: 18,
+    alignItems: "center",
+  },
+
+  emptyIcon: {
+    fontSize: 45,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1E1E2F",
+    marginTop: 12,
+  },
+
+  emptyText: {
+    textAlign: "center",
+    color: "#77778A",
+    marginTop: 8,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    color: "#77778A",
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor:
-      "rgba(20, 20, 35, 0.45)",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
 
-  modalCard: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
+  modalContainer: {
     maxHeight: "92%",
+    backgroundColor: "#F8F7FF",
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+  },
+
+  modalHandle: {
+    width: 45,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#CCCCD6",
+    alignSelf: "center",
+    marginTop: 10,
+  },
+
+  modalContent: {
+    padding: 22,
+    paddingBottom: 40,
   },
 
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-
-  modalHeaderText: {
-    flex: 1,
-    paddingRight: 10,
+    marginBottom: 25,
   },
 
   modalTitle: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: "800",
     color: "#1E1E2F",
   },
 
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#77778A",
     marginTop: 4,
   },
@@ -1352,150 +1709,173 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#F2F1F8",
-    alignItems: "center",
+    backgroundColor: "#EEEEF3",
     justifyContent: "center",
-  },
-
-  closeButtonText: {
-    color: "#55556A",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-
-  selectedCaregiverCard: {
-    backgroundColor: "#F8F7FF",
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 22,
   },
 
-  selectedAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: "#EEEAFE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
+  closeText: {
+    fontSize: 17,
+    color: "#555566",
+    fontWeight: "700",
   },
 
-  selectedAvatarText: {
-    color: "#4A3FB5",
-    fontSize: 19,
-    fontWeight: "900",
-  },
-
-  selectedName: {
+  fieldLabel: {
     fontSize: 15,
-    fontWeight: "800",
-    color: "#1E1E2F",
+    fontWeight: "700",
+    color: "#333344",
+    marginBottom: 8,
+    marginTop: 5,
   },
 
-  selectedSpecialization: {
+  planCard: {
+    minHeight: 70,
+    borderWidth: 1,
+    borderColor: "#DDDBE8",
+    borderRadius: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 11,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+
+  selectedPlanCard: {
+    backgroundColor: "#4A3FB5",
+    borderColor: "#4A3FB5",
+  },
+
+  planTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#333344",
+  },
+
+  planDescription: {
     fontSize: 12,
-    color: "#77778A",
+    color: "#888899",
     marginTop: 4,
   },
 
-  label: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#303044",
+  planPrice: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#15803D",
+  },
+
+  selectedPlanText: {
+    color: "#FFFFFF",
+  },
+
+  selectedPlanDescription: {
+    color: "#E5E2FF",
+  },
+
+  summaryCard: {
+    backgroundColor: "#EDE9FE",
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 7,
+    marginBottom: 20,
+  },
+
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#4A3FB5",
+    marginBottom: 12,
+  },
+
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
 
+  summaryLabel: {
+    fontSize: 14,
+    color: "#666078",
+  },
+
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2F2944",
+  },
+
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#2F2944",
+  },
+
+  totalPrice: {
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#15803D",
+  },
+
   pickerButton: {
-    width: "100%",
-    minHeight: 54,
+    height: 55,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DDDCE8",
-    borderRadius: 14,
+    borderColor: "#DDDBE8",
+    borderRadius: 13,
     paddingHorizontal: 15,
     marginBottom: 18,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  pickerText: {
+  pickerPlaceholder: {
+    fontSize: 15,
+    color: "#9999A8",
+  },
+
+  pickerValue: {
     fontSize: 15,
     color: "#1E1E2F",
     fontWeight: "600",
   },
 
-  placeholderText: {
-    color: "#9999A8",
-    fontWeight: "400",
-  },
-
   pickerIcon: {
-    color: "#4A3FB5",
-    fontSize: 14,
-    fontWeight: "900",
+    fontSize: 18,
   },
 
   input: {
-    width: "100%",
-    minHeight: 54,
+    minHeight: 55,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DDDCE8",
-    borderRadius: 14,
+    borderColor: "#DDDBE8",
+    borderRadius: 13,
     paddingHorizontal: 15,
     fontSize: 15,
     color: "#1E1E2F",
     marginBottom: 18,
   },
 
-  addressInput: {
-    minHeight: 90,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-
-  requirementInput: {
+  textArea: {
     minHeight: 110,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-
-  priceCard: {
-    backgroundColor: "#EEEAFE",
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DDDBE8",
+    borderRadius: 13,
+    padding: 15,
+    fontSize: 15,
+    color: "#1E1E2F",
     marginBottom: 18,
   },
 
-  priceLabel: {
-    fontSize: 12,
-    color: "#666677",
-    fontWeight: "700",
-  },
-
-  priceValue: {
-    fontSize: 24,
-    color: "#4A3FB5",
-    fontWeight: "900",
-    marginTop: 4,
-  },
-
-  priceNote: {
-    fontSize: 11,
-    color: "#77778A",
-    marginTop: 4,
-  },
-
   confirmButton: {
-    height: 56,
+    minHeight: 55,
     backgroundColor: "#4A3FB5",
-    borderRadius: 14,
-    alignItems: "center",
+    borderRadius: 13,
     justifyContent: "center",
-    marginTop: 4,
+    alignItems: "center",
+    marginTop: 8,
   },
 
   confirmButtonText: {
@@ -1509,19 +1889,15 @@ const styles = StyleSheet.create({
   },
 
   cancelButton: {
-    height: 50,
-    alignItems: "center",
+    minHeight: 50,
     justifyContent: "center",
-    marginTop: 6,
+    alignItems: "center",
+    marginTop: 8,
   },
 
   cancelButtonText: {
     color: "#77778A",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-  },
-
-  bottomSpace: {
-    height: 30,
   },
 });

@@ -17,22 +17,20 @@ import {
   View,
 } from "react-native";
 
-type PatientBooking = {
+type BookingHistory = {
   id: string;
   elderlyName?: string;
   patientName?: string;
-  age?: string | number;
-  phone?: string;
-  address?: string;
   serviceType?: string;
   date?: string;
   time?: string;
   status?: string;
+  totalPrice?: number;
 };
 
-export default function PatientDetails() {
-  const [patients, setPatients] = useState<
-    PatientBooking[]
+export default function BookingUpdates() {
+  const [bookings, setBookings] = useState<
+    BookingHistory[]
   >([]);
 
   const [loading, setLoading] = useState(true);
@@ -47,8 +45,7 @@ export default function PatientDetails() {
 
     const q = query(
       collection(db, "caregiverBookings"),
-      where("caregiverId", "==", user.uid),
-      where("status", "==", "accepted")
+      where("caregiverId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -57,14 +54,14 @@ export default function PatientDetails() {
         const data = snapshot.docs.map((item) => ({
           id: item.id,
           ...item.data(),
-        })) as PatientBooking[];
+        })) as BookingHistory[];
 
-        setPatients(data);
+        setBookings(data);
         setLoading(false);
       },
       (error) => {
         console.log(
-          "Accepted patient error:",
+          "Booking history error:",
           error
         );
 
@@ -75,6 +72,38 @@ export default function PatientDetails() {
     return unsubscribe;
   }, []);
 
+  function getStatusStyle(status?: string) {
+    switch (status) {
+      case "accepted":
+        return styles.acceptedBadge;
+
+      case "rejected":
+        return styles.rejectedBadge;
+
+      case "completed":
+        return styles.completedBadge;
+
+      default:
+        return styles.pendingBadge;
+    }
+  }
+
+  function getStatusTextStyle(status?: string) {
+    switch (status) {
+      case "accepted":
+        return styles.acceptedText;
+
+      case "rejected":
+        return styles.rejectedText;
+
+      case "completed":
+        return styles.completedText;
+
+      default:
+        return styles.pendingText;
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -82,10 +111,6 @@ export default function PatientDetails() {
           size="large"
           color="#4A3FB5"
         />
-
-        <Text style={styles.loadingText}>
-          Loading patients...
-        </Text>
       </View>
     );
   }
@@ -96,82 +121,72 @@ export default function PatientDetails() {
       contentContainerStyle={styles.content}
     >
       <Text style={styles.title}>
-        👵 Accepted Patients
+        📋 Booking History
       </Text>
 
       <Text style={styles.subtitle}>
-        Patients whose bookings you accepted
+        Track all your care bookings
       </Text>
 
-      {patients.length === 0 ? (
+      {bookings.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyIcon}>
-            👤
+            📋
           </Text>
 
           <Text style={styles.emptyTitle}>
-            No Accepted Patients
-          </Text>
-
-          <Text style={styles.emptyText}>
-            Accepted booking requests will appear
-            here.
+            No Booking History
           </Text>
         </View>
       ) : (
-        patients.map((patient) => (
+        bookings.map((booking) => (
           <View
-            key={patient.id}
+            key={booking.id}
             style={styles.card}
           >
-            <View style={styles.patientHeader}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  👵
-                </Text>
-              </View>
+            <View style={styles.row}>
+              <Text style={styles.name}>
+                👵{" "}
+                {booking.elderlyName ||
+                  booking.patientName ||
+                  "Patient"}
+              </Text>
 
-              <View style={styles.nameContainer}>
-                <Text style={styles.name}>
-                  {patient.elderlyName ||
-                    patient.patientName ||
-                    "Patient"}
+              <View
+                style={[
+                  styles.badge,
+                  getStatusStyle(booking.status),
+                ]}
+              >
+                <Text
+                  style={getStatusTextStyle(
+                    booking.status
+                  )}
+                >
+                  {booking.status || "pending"}
                 </Text>
-
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    Accepted
-                  </Text>
-                </View>
               </View>
             </View>
 
             <View style={styles.divider} />
 
             <Text style={styles.detail}>
-              🎂 Age: {patient.age || "--"}
+              🩺 {booking.serviceType || "--"}
             </Text>
 
             <Text style={styles.detail}>
-              📞 Phone: {patient.phone || "--"}
+              📅 {booking.date || "--"}
             </Text>
 
             <Text style={styles.detail}>
-              📍 Address: {patient.address || "--"}
+              🕒 {booking.time || "--"}
             </Text>
 
-            <Text style={styles.detail}>
-              🩺 Service:{" "}
-              {patient.serviceType || "--"}
-            </Text>
-
-            <Text style={styles.detail}>
-              📅 Date: {patient.date || "--"}
-            </Text>
-
-            <Text style={styles.detail}>
-              🕒 Time: {patient.time || "--"}
-            </Text>
+            {booking.totalPrice !== undefined && (
+              <Text style={styles.price}>
+                💰 ₹{booking.totalPrice}
+              </Text>
+            )}
           </View>
         ))
       )}
@@ -195,12 +210,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F7F8FC",
-  },
-
-  loadingText: {
-    marginTop: 12,
-    color: "#77778A",
   },
 
   title: {
@@ -218,67 +227,88 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: "#FFFFFF",
-    padding: 20,
+    padding: 19,
     borderRadius: 18,
-    marginBottom: 18,
+    marginBottom: 16,
     elevation: 3,
   },
 
-  patientHeader: {
+  row: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-  },
-
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 28,
-    backgroundColor: "#EDE9FE",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 14,
-  },
-
-  avatarText: {
-    fontSize: 27,
-  },
-
-  nameContainer: {
-    flex: 1,
   },
 
   name: {
-    fontSize: 19,
+    flex: 1,
+    fontSize: 17,
     fontWeight: "800",
     color: "#1E1E2F",
   },
 
   badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#DCFCE7",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 20,
-    marginTop: 5,
   },
 
-  badgeText: {
-    color: "#15803D",
-    fontSize: 12,
+  pendingBadge: {
+    backgroundColor: "#FEF3C7",
+  },
+
+  acceptedBadge: {
+    backgroundColor: "#DCFCE7",
+  },
+
+  rejectedBadge: {
+    backgroundColor: "#FEE2E2",
+  },
+
+  completedBadge: {
+    backgroundColor: "#DBEAFE",
+  },
+
+  pendingText: {
+    color: "#B45309",
     fontWeight: "700",
+    fontSize: 12,
+  },
+
+  acceptedText: {
+    color: "#15803D",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+
+  rejectedText: {
+    color: "#DC2626",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+
+  completedText: {
+    color: "#1D4ED8",
+    fontWeight: "700",
+    fontSize: 12,
   },
 
   divider: {
     height: 1,
     backgroundColor: "#EEEEF3",
-    marginVertical: 16,
+    marginVertical: 15,
   },
 
   detail: {
     fontSize: 15,
-    color: "#454557",
-    marginBottom: 10,
-    lineHeight: 21,
+    color: "#555566",
+    marginBottom: 9,
+  },
+
+  price: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#15803D",
+    marginTop: 5,
   },
 
   emptyCard: {
@@ -293,16 +323,8 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "800",
     marginTop: 12,
-    color: "#1E1E2F",
-  },
-
-  emptyText: {
-    textAlign: "center",
-    color: "#77778A",
-    marginTop: 8,
-    lineHeight: 21,
   },
 });
